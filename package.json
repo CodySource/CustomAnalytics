@@ -1,0 +1,11 @@
+{
+  "name": "com.codysource.customanalytics",
+  "version": "1.0.0",
+  "displayName": "Custom Analytics",
+  "description": "This package allows for the tracking and export of modular custom analytics.",
+  "unity": "2020.3",
+  "unityRelease": "15f2",
+  "author": {
+    "name": "Cody Source"
+  }
+}
