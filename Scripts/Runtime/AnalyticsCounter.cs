@@ -18,6 +18,8 @@ namespace CodySource
             public bool resetAfterExport = true;
             public bool showCounterTotals = true;
 
+            public DataEntry entry;
+
             #endregion
 
             #region PUBLIC METHODS
@@ -34,12 +36,12 @@ namespace CodySource
                 if (showCounterTotals)
                 {
                     int _totalCount = 0;
-                    data.ForEach(c => _totalCount += c.intValue);
+                    table.data.ForEach(c => _totalCount += c.intValue);
                     table.data.Add(new DataEntry() { label = "Total Count", valueType = EntryValues.Int, intValue = _totalCount });
                 }
 
                 //  Add the internal data to the exported table
-                data.ForEach(f => table.data.Add(f));
+                table.data.ForEach(f => table.data.Add(f));
                 return table;
             }
 
@@ -48,9 +50,9 @@ namespace CodySource
             /// </summary>
             public void IncrementCounter(string pLabel, int pAmount = 1)
             {
-                int _index = data.FindIndex(f => f.label == pLabel);
-                int _count = data[_index].intValue + pAmount;
-                data[_index] = new DataEntry()
+                int _index = table.data.FindIndex(f => f.label == pLabel);
+                int _count = table.data[_index].intValue + pAmount;
+                table.data[_index] = new DataEntry()
                 {
                     label = pLabel,
                     valueType = EntryValues.Int,
@@ -63,9 +65,9 @@ namespace CodySource
             /// </summary>
             public void DecrementCounter(string pLabel, int pAmount = 1)
             {
-                int _index = data.FindIndex(f => f.label == pLabel);
-                int _count = data[_index].intValue - pAmount;
-                data[_index] = new DataEntry()
+                int _index = table.data.FindIndex(f => f.label == pLabel);
+                int _count = table.data[_index].intValue - pAmount;
+                table.data[_index] = new DataEntry()
                 {
                     label = pLabel,
                     valueType = EntryValues.Int,

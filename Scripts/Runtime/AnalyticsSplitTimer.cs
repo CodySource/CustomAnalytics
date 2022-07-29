@@ -63,13 +63,13 @@ namespace CodySource
                 if (showTotalTime)
                 {
                     float _totalTime = 0f;
-                    data.ForEach(t => _totalTime += t.floatValue);
+                    table.data.ForEach(t => _totalTime += t.floatValue);
                     string _totalTimeStr = "~ " +ConvertIntToStringTime(Mathf.RoundToInt(_totalTime));
                     table.data.Add(new DataEntry() { label = "Approximate Total Time", valueType = EntryValues.String, stringValue = _totalTimeStr });
                 }
 
                 //  Add the internal data to the exported table
-                data.ForEach(e => table.data.Add(e));
+                table.data.ForEach(e => table.data.Add(e));
                 return table;
             }
 
@@ -93,8 +93,8 @@ namespace CodySource
                 string _convertedTime = "~ " + ConvertIntToStringTime(Mathf.RoundToInt(_time));
 
                 //  Adds the data entry with the split info
-                data.Add(new DataEntry() {
-                    label = (pLabel != "") ? pLabel : label,
+                table.data.Add(new DataEntry() {
+                    label = (pLabel != "") ? pLabel : table.label,
                     valueType = EntryValues.String,
                     floatValue = (_time),
                     stringValue = _convertedTime });
@@ -112,7 +112,7 @@ namespace CodySource
             /// </summary>
             protected override void OnExportComplete()
             {
-                if (eraseSplitTimesAfterExport) data.Clear();
+                if (eraseSplitTimesAfterExport) table.data.Clear();
             }
 
             #endregion

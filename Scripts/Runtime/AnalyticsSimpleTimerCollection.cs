@@ -69,13 +69,13 @@ namespace CodySource
                 if (showTotalTime)
                 {
                     float _totalTime = 0f;
-                    data.ForEach(t => _totalTime += t.floatValue);
+                    table.data.ForEach(t => _totalTime += t.floatValue);
                     string _totalTimeStr = "~ " + ConvertIntToStringTime(Mathf.RoundToInt(_totalTime));
                     table.data.Add(new DataEntry() { label = "Approximate Total Time", valueType = EntryValues.String, stringValue = _totalTimeStr });
                 }
 
                 //  Add the internal data to the exported table
-                data.ForEach(e => table.data.Add(e));
+                table.data.ForEach(e => table.data.Add(e));
                 return table;
             }
 
@@ -103,15 +103,15 @@ namespace CodySource
                 if (targetTimer == "") return;
 
                 //  Breakout if the target timer cannot be found
-                int _index = data.FindIndex(d => d.label == targetTimer);
+                int _index = table.data.FindIndex(d => d.label == targetTimer);
                 if (_index == -1) return;
 
                 //  Update the last data entry for the target timer
-                DataEntry _d = data[_index];
+                DataEntry _d = table.data[_index];
                 _d.valueType = EntryValues.String;
                 _d.floatValue += Time.time - _startTime;
                 _d.stringValue = ConvertIntToStringTime(Mathf.RoundToInt(_d.floatValue));
-                data[_index] = _d;
+                table.data[_index] = _d;
 
                 //  Clears the start time for the target timer
                 _startTime = -1;
@@ -128,9 +128,9 @@ namespace CodySource
             {
                 if (eraseAllTimesAfterExport)
                 {
-                    for (int i = 0; i < data.Count; i ++)
+                    for (int i = 0; i < table.data.Count; i ++)
                     {
-                        data[i] = new DataEntry() { label = data[i].label, valueType = data[i].valueType };
+                        table.data[i] = new DataEntry() { label = table.data[i].label, valueType = table.data[i].valueType };
                     }
                 }
             }
