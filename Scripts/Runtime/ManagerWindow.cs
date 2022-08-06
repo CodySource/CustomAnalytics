@@ -15,16 +15,30 @@ namespace CodySource
         {
             #region PROPERTIES
 
-            /// <summary>
-            /// The available calculations & their ranges
-            /// </summary>
-            public static List<string> calulationOptions = new List<string>();
-            public static Dictionary<string, RangeInt> calculationRanges = new Dictionary<string, RangeInt>();
-            public static Dictionary<string, string> calculationDescriptions = new Dictionary<string, string>();
+            public static string version = "2.0.0";
             public static EditorWindow win = null;
 
-            public Vector2 winScrollPos = Vector2.zero;
+            /// <summary>
+            /// The cached list of available datatypes
+            /// </summary>
+            public static List<DataTypes._DataType> dataTypes = new List<DataTypes._DataType>();
+            public static List<string> dataTypeNames = new List<string>();
 
+            /// <summary>
+            /// The cached list of available calculations
+            /// </summary>
+            public static List<Calculations._Calculation> calculations = new List<Calculations._Calculation>();
+            public static List<string> calculationNames = new List<string>();
+
+            /// <summary>
+            /// The current window scroll position
+            /// </summary>
+            public Vector2 winScrollPos = Vector2.zero;
+            public int cachedDataPointCount = 0;
+
+            /// <summary>
+            /// The headers for the data point table
+            /// </summary>
             public List<MultiColumnHeaderState.Column> tableHeaders = new List<MultiColumnHeaderState.Column>()
             {
                 new MultiColumnHeaderState.Column(){
@@ -36,14 +50,14 @@ namespace CodySource
                 },
                 new MultiColumnHeaderState.Column(){
                     headerContent = new GUIContent("ID"),
-                    minWidth = 150f,
+                    minWidth = 100f,
                     canSort = false
                 },
                 new MultiColumnHeaderState.Column(){
                     headerContent = new GUIContent("Export"),
-                    maxWidth = 80f,
-                    minWidth = 80f,
-                    width = 80f,
+                    maxWidth = 60f,
+                    minWidth = 60f,
+                    width = 60f,
                     canSort = false
                 },
                 new MultiColumnHeaderState.Column(){
@@ -55,12 +69,12 @@ namespace CodySource
                 },
                 new MultiColumnHeaderState.Column(){
                     headerContent = new GUIContent("Value"),
-                    minWidth = 150f,
+                    minWidth = 100f,
                     canSort = false
                 },
                 new MultiColumnHeaderState.Column(){
                     headerContent = new GUIContent("Calculation"),
-                    minWidth = 150f,
+                    minWidth = 100f,
                     canSort = false
                 },
                 new MultiColumnHeaderState.Column(){
@@ -72,12 +86,41 @@ namespace CodySource
             public MultiColumnHeaderState tableHeaderState;
             public MultiColumnHeader table;
 
+            /// <summary>
+            /// Has a datapoint's id been changed
+            /// </summary>
             public bool isIDChanged = false;
 
-            public ProfileDisplay profile = null;
-            public string profileName = "MyProfile";
+            /// <summary>
+            /// The profile attempting to be loaded
+            /// </summary>
+            private AnalyticsProfile _load = null;
 
+            /// <summary>
+            /// The current profile being displayed
+            /// </summary>
+            public ProfileDisplay profile = null;
+
+            /// <summary>
+            /// The current profile's name
+            /// </summary>
+            public string profileName = "MyProfile";
+            private string _profileNameCache = "";
+
+            /// <summary>
+            /// Is the profile being closed
+            /// </summary>
             private bool isClosingProfile = false;
+
+            /// <summary>
+            /// The cached autosave value for the loaded profile
+            /// </summary>
+            private string autoSave = "";
+
+            /// <summary>
+            /// Used to check if there have been any changes since the last export
+            /// </summary>
+            private string exportSave = "";
 
             #endregion
 
@@ -90,9 +133,14 @@ namespace CodySource
             {
                 try
                 {
-                    profile = JsonUtility.FromJson<ProfileDisplay>(pProfile.serializedProfileDisplay.Replace("\\\"","\""));
+                    string _loadedString = pProfile.serializedProfileDisplay.Replace("\\\"", "\"");
+                    profile = JsonUtility.FromJson<ProfileDisplay>(_loadedString);
+                    profile.Deserialize();
+                    profile.state = ProfileDisplay.PROFILE_STATE.IDLE;
+                    autoSave = profile.Serialize();
+                    exportSave = autoSave;
                 }
-                catch (System.Exception e)
+                catch
                 {
                     Debug.LogError("Unable to load profile.");
                 }
@@ -114,6 +162,14 @@ namespace CodySource
                 win.titleContent = new GUIContent("Analytics Manager");
             }
 
+            /// <summary>
+            /// Try to delete the auto save
+            /// </summary>
+            public void OnDestroy()
+            {
+                EditorPrefs.DeleteKey("CustomAnalyticsAutoSave");
+            }
+
             public void OnGUI()
             {
                 if (profile == null)
@@ -129,13 +185,40 @@ namespace CodySource
                             _ShowStartMenu();
                             return;
                         }
-                        if (profile.deletedIndex != -1 && Event.current.type == EventType.Repaint) profile.DeleteDataPoint();
-                        else if (profile.swapIndex[0] != -1 && Event.current.type == EventType.Repaint) profile.SwapDataPoints();
-                        else if (profile.isExporting && Event.current.type == EventType.Repaint) profile.GenerateCS();
-                        else if (EditorPrefs.HasKey("NewAnalyticsProfile") &&
-                            !EditorApplication.isCompiling &&
-                            Event.current.type == EventType.Repaint) profile.GenerateObject();
-                        else _ShowProfileMenu();
+                         switch (profile.state)
+                        {
+                            case ProfileDisplay.PROFILE_STATE.LOADING:
+                                //  TODO:   CREATE DRAW LOADING TO RUN UNDERNEATH EACH STATE
+                                break;
+                            case ProfileDisplay.PROFILE_STATE.ADDING:
+                                if (Event.current.type != EventType.Repaint) break;
+                                profile.AddDataPoint(dataTypeNames[0]);
+                                EditorPrefs.DeleteKey("CustomAnalyticsAutoSave");
+                                break;
+                            case ProfileDisplay.PROFILE_STATE.DELETING:
+                                if (Event.current.type != EventType.Repaint) break;
+                                profile.DeleteDataPoint();
+                                EditorPrefs.DeleteKey("CustomAnalyticsAutoSave");
+                                break;
+                            case ProfileDisplay.PROFILE_STATE.SWAPING:
+                                if (Event.current.type != EventType.Repaint) break;
+                                profile.SwapDataPoints();
+                                EditorPrefs.DeleteKey("CustomAnalyticsAutoSave");
+                                break;
+                            case ProfileDisplay.PROFILE_STATE.EXPORTING:
+                                if (Event.current.type != EventType.Repaint) break;
+                                EditorPrefs.DeleteKey("CustomAnalyticsAutoSave");
+                                profile.GenerateCS();
+                                break;
+                            case ProfileDisplay.PROFILE_STATE.COMPILING:
+                                if (Event.current.type != EventType.Repaint) break;
+                                if (!EditorApplication.isCompiling) profile.GenerateObject();
+                                exportSave = profile.Serialize();
+                                autoSave = exportSave;
+                                break;
+                        }
+                        _ShowProfileMenu();
+                        EditorGUILayout.LabelField(version, EditorStyles.miniLabel);
                     }
                     else _CloseProfile();
                 }
@@ -143,7 +226,8 @@ namespace CodySource
 
             public void OnFocus()
             {
-                //  Updates the list of available calculations
+                //  Updates the list of available datatypes & calculations
+                _UpdateDataTypeOptions();
                 _UpdateCalculationOptions();
                 tableHeaderState = new MultiColumnHeaderState(tableHeaders.ToArray());
                 table = new MultiColumnHeader(tableHeaderState);
@@ -154,28 +238,42 @@ namespace CodySource
             #region PRIVATE METHODS
 
             /// <summary>
+            /// Updates the list of available datatype options
+            /// </summary>
+            private void _UpdateDataTypeOptions()
+            {
+                dataTypes.Clear();
+                dataTypeNames.Clear();
+                System.Type[] types = Assembly.GetExecutingAssembly().GetTypes();
+                foreach (System.Type type in types)
+                {
+                    if (type.IsSubclassOf(typeof(DataTypes._DataType)))
+                    {
+                        dataTypes.Add((DataTypes._DataType)System.Activator.CreateInstance(type));
+                        dataTypeNames.Add(type.Name);
+                    }
+                }
+                dataTypeNames.Sort();
+            }
+
+            /// <summary>
             /// Updates the list of available calculation options
             /// </summary>
             private void _UpdateCalculationOptions()
             {
-                calulationOptions.Clear();
-                calculationRanges.Clear();
-                calculationDescriptions.Clear();
-
+                calculations.Clear();
+                calculationNames.Clear();
                 System.Type[] types = Assembly.GetExecutingAssembly().GetTypes();
                 foreach (System.Type type in types)
                 {
                     if (type.IsSubclassOf(typeof(Calculations._Calculation)))
                     {
-                        Calculations._Calculation _cal = (Calculations._Calculation)System.Activator.CreateInstance(type);
-                        calulationOptions.Add($"{type.Name}");
-                        calculationRanges.Add(type.Name, _cal.RequiredDataPoints());
-                        calculationDescriptions.Add(type.Name, $"output: {_cal.CalculationDescription()}");
+                        calculations.Add((Calculations._Calculation)System.Activator.CreateInstance(type));
+                        calculationNames.Add(type.Name);
                     }
                 }
-
-                calulationOptions.Add("<None>");
-                calulationOptions.Sort();
+                calculationNames.Add("<None>");
+                calculationNames.Sort();
             }
 
             /*
@@ -202,9 +300,11 @@ namespace CodySource
                 {
                     profile = new ProfileDisplay(profileName);
                     profileName = "";
+                    _UpdateDataTypeOptions();
                     _UpdateCalculationOptions();
                     tableHeaderState = new MultiColumnHeaderState(tableHeaders.ToArray());
                     table = new MultiColumnHeader(tableHeaderState);
+                    profile.state = ProfileDisplay.PROFILE_STATE.IDLE;
                 }
                 EditorGUILayout.EndVertical();
                 GUILayout.FlexibleSpace();
@@ -214,21 +314,31 @@ namespace CodySource
                 GUILayout.Label("OR", EditorStyles.centeredGreyMiniLabel);
                 GUILayout.Space(10f);
 
+                //  Load Area
+                EditorGUILayout.BeginVertical();
+
+                EditorGUILayout.BeginHorizontal();
+                GUILayout.FlexibleSpace();
+                //  Load Field
+                EditorGUILayout.LabelField("Load Profile");
+                _load = (AnalyticsProfile)EditorGUILayout.ObjectField(_load, typeof(AnalyticsProfile), false);
+                GUILayout.FlexibleSpace();
+                EditorGUILayout.EndHorizontal();
+
                 EditorGUILayout.BeginHorizontal();
                 GUILayout.FlexibleSpace();
                 //  Load Button
-                if (GUILayout.Button("Load Profile", GUILayout.Width(position.width * 0.5f), GUILayout.Height(35f)))
+                if (GUILayout.Button($"Load {((_load != null)? _load.name : "")}", GUILayout.Width(position.width * 0.5f), GUILayout.Height(35f)) &&
+                    _load != null)
                 {
-                    string _file = EditorUtility.OpenFilePanel("Open Analytics Profile", "Assets/", "asset");
-                    if (_file != "")
-                    {
-                        _file = _file.Replace(Application.dataPath, "Assets");
-                        //  Try to load asset
-                        LoadProfile((AnalyticsProfile)AssetDatabase.LoadAssetAtPath(_file, typeof(AnalyticsProfile)));
-                    }
+                    profileName = "";
+                    //  Try to load asset
+                    LoadProfile(_load);
                 }
                 GUILayout.FlexibleSpace();
                 EditorGUILayout.EndHorizontal();
+
+                EditorGUILayout.EndVertical();
 
                 GUILayout.FlexibleSpace();
                 EditorGUILayout.EndVertical();
@@ -239,29 +349,33 @@ namespace CodySource
             /// </summary>
             private void _DrawProfileName(string pText)
             {
-                string _cache = pText;
+                _profileNameCache = _profileNameCache == "" ? "" : pText;
                 EditorGUILayout.BeginHorizontal();
                 GUILayout.Label("Profile Name:");
                 string _temp = GUILayout.TextField(pText);
                 EditorGUILayout.EndHorizontal();
                 //  There are changes in the id
-                if (_temp != _cache)
+                if (_temp != _profileNameCache)
                 {
                     //  Screen for unwanted characters
-                    _temp = (_temp != _cache) ? Regex.Replace(_temp, @"[^a-zA-Z0-9_]", "") : _temp;
+                    _temp = (_temp != _profileNameCache) ? Regex.Replace(_temp, @"[^a-zA-Z0-9_]", "") : _temp;
                     //  Prevent zero length
                     _temp = (_temp == "") ? "_" : _temp;
                     //  Screen for starting with numbers
                     _temp = (_temp != "" && Regex.Replace(_temp.Substring(0, 1), @"[0-9]", "") == "") ? $"_{_temp}" : _temp;
                     //  Ensure profile name isn't already in use
-                    System.Type[] types = Assembly.GetExecutingAssembly().GetTypes();
+                    System.Type[] types = Assembly.Load(new AssemblyName("Assembly-CSharp")).GetTypes();
                     foreach (System.Type type in types)
                     {
-                        _temp = (type == typeof(AnalyticsProfile) && type.Name == _temp) ? $"{_temp}_" : _temp;
-                        _temp = (type.IsSubclassOf(typeof(AnalyticsProfile)) && type.Name == _temp) ? $"{_temp}_" : _temp;
+                        string _cleanName = type.Name.Substring(type.Name.LastIndexOf('.') + 1);
+                        if (type == typeof(AnalyticsProfile) || type.IsSubclassOf(typeof(AnalyticsProfile)))
+                        {
+                            _temp = (_cleanName == _temp) ? $"{_temp}_" : _temp;
+                        }
                     }
                 }
                 profileName = _temp;
+                _profileNameCache = _temp;
             }
 
             /*
@@ -278,23 +392,62 @@ namespace CodySource
                 //  Break out if the profile is null
                 if (profile == null) return;
 
+                //  Attempt autosave
+                if (Event.current.type == EventType.Repaint)
+                {
+                    if (EditorPrefs.HasKey("CustomAnalyticsAutoSave"))
+                    {
+                        if (autoSave == "")
+                        {
+                            string _loaded = EditorPrefs.GetString("CustomAnalyticsAutoSave").Replace("\\\"", "\"");
+                            profile = JsonUtility.FromJson<ProfileDisplay>(_loaded);
+                            EditorPrefs.DeleteKey("CustomAnalyticsAutoSave");
+                        }
+                    }
+                    else
+                    {
+                        autoSave = profile.Serialize();
+                        //  Save the profile temporarily for quick load after re-compile
+                        EditorPrefs.SetString("CustomAnalyticsAutoSave", autoSave);
+                    }
+                }
+
                 EditorGUILayout.BeginHorizontal(EditorStyles.helpBox);
                 winScrollPos = EditorGUILayout.BeginScrollView(winScrollPos, GUILayout.Height(position.height - 30f));
 
                 GUILayout.Space(10f);
 
-                EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+                EditorGUILayout.BeginHorizontal(EditorStyles.helpBox);
 
-                if (GUILayout.Button($"Close [ {profile.name} ]", GUILayout.Height(EditorGUIUtility.singleLineHeight * 2f)))
+                EditorGUILayout.BeginVertical();
+
+                EditorGUILayout.LabelField("This section reserved for more profile configurations.");
+
+                string _cachedDescription = profile.description;
+                EditorGUILayout.LabelField("Profile Description:");
+                profile.description = EditorGUILayout.TextArea(profile.description, GUILayout.Height(EditorGUIUtility.singleLineHeight * 2f));
+                if (profile.description != _cachedDescription) EditorPrefs.DeleteKey("CustomAnalyticsAutoSave");
+
+                EditorGUILayout.EndVertical();
+
+                EditorGUILayout.BeginVertical();
+
+                GUI.backgroundColor = Color.red;
+                if (GUILayout.Button($"Close Profile", GUILayout.Height(EditorGUIUtility.singleLineHeight * 2f)))
                 {
                     isClosingProfile = true;
                 }
-                if (GUILayout.Button($"Export [ {profile.name} ]", GUILayout.Height(EditorGUIUtility.singleLineHeight * 2f)))
+                GUI.backgroundColor = (exportSave == autoSave) ? Color.grey : Color.green;
+                if (GUILayout.Button($"Export Profile", GUILayout.Height(EditorGUIUtility.singleLineHeight * 2f)) && (exportSave != autoSave))
                 {
-                    profile.isExporting = true;
+                    profile.state = ProfileDisplay.PROFILE_STATE.EXPORTING;
+                    autoSave = "";
                 }
+                GUI.backgroundColor = Color.white;
 
                 EditorGUILayout.EndVertical();
+
+                EditorGUILayout.EndHorizontal();
 
                 GUILayout.Space(10f);
 
@@ -307,23 +460,38 @@ namespace CodySource
                 _table.height = EditorGUIUtility.singleLineHeight;
                 table.ResizeToFit();
                 table.OnGUI(_table, 0f);
-                GUILayout.Space(EditorGUIUtility.singleLineHeight);
+                EditorGUILayout.Space(EditorGUIUtility.singleLineHeight);
 
                 //  Data Rows
-                for (int i = 0; i < profile.dataPoints.Count; i++)
+                if (cachedDataPointCount != profile.dataPoints.Count)
+                { 
+                    if (Event.current.type == EventType.Repaint) cachedDataPointCount = profile.dataPoints.Count;
+                }
+                else
                 {
-                    GUI.backgroundColor = (i % 2 == 0) ? Color.clear : new Color(0.25f, 0.25f, 0.25f);
-                    EditorGUILayout.BeginHorizontal(EditorStyles.helpBox);
-                    DataPoint _target = profile.dataPoints[i];
-                    GUI.backgroundColor = Color.white;
-                    _DrawDelete(i);
-                    _DrawId(_target);
-                    _DrawExported(_target);
-                    _DrawType(_target);
-                    _DrawValue(_target, i);
-                    _DrawCalculationOptions(_target, i);
-                    _DrawSources(_target, i);
-                    EditorGUILayout.EndHorizontal();
+                    for (int i = 0; i < profile.dataPoints.Count; i++)
+                    {
+                        GUI.backgroundColor = (i % 2 == 0) ? Color.clear : new Color(0.25f, 0.25f, 0.25f);
+                        EditorGUILayout.BeginHorizontal(EditorStyles.helpBox);
+                        DataPoint _target = profile.dataPoints[i];
+                        GUI.backgroundColor = Color.white;
+                        if (profile.state != ProfileDisplay.PROFILE_STATE.IDLE || _target.type == null)
+                        {
+                            EditorGUILayout.LabelField($"Loading...");
+                            profile.Deserialize();
+                        }
+                        else
+                        {
+                            _DrawDelete(i);
+                            _DrawId(_target);
+                            _DrawExported(_target);
+                            _DrawType(_target);
+                            _DrawValue(_target, i);
+                            _DrawCalculationOptions(_target, i);
+                            _DrawSources(_target, i);
+                        }
+                        EditorGUILayout.EndHorizontal();
+                    }
                 }
                 EditorGUILayout.EndVertical();
 
@@ -346,6 +514,7 @@ namespace CodySource
                 {
                     profile = null;
                     isClosingProfile = false;
+                    EditorPrefs.DeleteKey("CustomAnalyticsAutoSave");
                 }
             }
 
@@ -361,20 +530,20 @@ namespace CodySource
                 GUILayout.FlexibleSpace();
                 if (GUILayout.Button("X"))
                 {
-                    List<ProfileDisplay.SourceSelections> _dependencies = new List<ProfileDisplay.SourceSelections>
-                        (profile.datapointSourceSelections.FindAll(s => s.sources.Contains(pIndex)));
+                    List<DataPoint> _dependencies = new List<DataPoint>(profile.dataPoints.FindAll(d => d.sources.Contains(pIndex)));
                     if (_dependencies.Count > 0)
                     {
-                        string _message = 
+                        string _message =
                             $"Unable to delete {profile.dataPoints[pIndex].id}.\n" +
                             $"Please remove source references from:\n";
-                        _dependencies.ForEach(d => _message += 
-                            $"\n\t{profile.dataPoints[profile.datapointSourceSelections.IndexOf(d)].id}");
+                        _dependencies.ForEach(d => _message +=
+                            $"\n\t{d.id}");
                         EditorUtility.DisplayDialog("Calculation Dependencies", _message, "Ok");
                     }
                     else
                     {
-                        profile.deletedIndex = pIndex;
+                        profile.stateInformation[0] = pIndex;
+                        profile.state = ProfileDisplay.PROFILE_STATE.DELETING;
                     }
                 }
                 GUILayout.FlexibleSpace();
@@ -385,14 +554,16 @@ namespace CodySource
                 if (pIndex == 0) GUILayout.FlexibleSpace();
                 else if (GUILayout.Button("↑"))
                 {
-                    profile.swapIndex[0] = pIndex;
-                    profile.swapIndex[1] = pIndex - 1;
+                    profile.stateInformation[0] = pIndex;
+                    profile.stateInformation[1] = pIndex - 1;
+                    profile.state = ProfileDisplay.PROFILE_STATE.SWAPING;
                 }
                 if (pIndex == profile.dataPoints.Count - 1) GUILayout.FlexibleSpace();
                 else if (GUILayout.Button("↓"))
                 {
-                    profile.swapIndex[0] = pIndex;
-                    profile.swapIndex[1] = pIndex + 1;
+                    profile.stateInformation[0] = pIndex;
+                    profile.stateInformation[1] = pIndex + 1;
+                    profile.state = ProfileDisplay.PROFILE_STATE.SWAPING;
                 }
                 EditorGUILayout.EndVertical();
 
@@ -421,6 +592,7 @@ namespace CodySource
                     {
                         _temp = (_temp == profile.dataPoints[i].id && profile.dataPoints[i] != pTarget) ? $"{_temp}_" : _temp;
                     }
+                    EditorPrefs.DeleteKey("CustomAnalyticsAutoSave");
                 }
                 pTarget.id = _temp;
             }
@@ -432,7 +604,9 @@ namespace CodySource
             {
                 EditorGUILayout.BeginHorizontal(GUILayout.Width(table.GetColumnRect(2).width - 5f));
                 GUILayout.FlexibleSpace();
-                pTarget.isExported = EditorGUILayout.Toggle(pTarget.isExported);
+                bool _cache = pTarget.export;
+                pTarget.export = EditorGUILayout.Toggle(pTarget.export);
+                if (_cache != pTarget.export) EditorPrefs.DeleteKey("CustomAnalyticsAutoSave");
                 GUILayout.FlexibleSpace();
                 EditorGUILayout.EndHorizontal();
             }
@@ -442,16 +616,19 @@ namespace CodySource
             /// </summary>
             private void _DrawType(DataPoint pTarget)
             {
-                DataPoint.DataType _cache = pTarget.dataType;
-                pTarget.dataType = (DataPoint.DataType)EditorGUILayout.Popup((int)pTarget.dataType,
-                    System.Enum.GetNames(typeof(DataPoint.DataType)), GUILayout.Width(table.GetColumnRect(3).width - 3f));
-                if (pTarget.dataType != _cache)
+                //  Get the current information & cache the old info
+                string _cache = pTarget.typeString;
+                int _cacheIndex = dataTypeNames.IndexOf(pTarget.typeString);
+                int _typeIndex = Mathf.Max(EditorGUILayout.Popup(_cacheIndex, dataTypeNames.ToArray(), GUILayout.Width(table.GetColumnRect(3).width - 3f)), 0);
+                string _typeName = dataTypeNames[_typeIndex];
+                //  Update the info if it's different than the cache
+                if (_cacheIndex != _typeIndex)
                 {
-                    pTarget.SetValue(0);
-                    pTarget.SetValue(0f);
-                    pTarget.SetValue(false);
-                    pTarget.SetValue(""); 
-                    profile.UpdateCalculationPreviews();
+                    pTarget.typeString = _typeName;
+                    pTarget.type = (DataTypes._DataType)System.Activator.CreateInstance(
+                        System.Type.GetType($"CodySource.CustomAnalytics.DataTypes.{_typeName}"));
+                    profile.UpdateAvailableSources();
+                    EditorPrefs.DeleteKey("CustomAnalyticsAutoSave");
                 }
             }
 
@@ -462,45 +639,59 @@ namespace CodySource
             {
                 EditorGUILayout.BeginHorizontal(GUILayout.Width(table.GetColumnRect(4).width - 3f));
 
-                int _cacheInt = pTarget.GetIntValue();
-                float _cacheFloat = pTarget.GetFloatValue();
-                bool _cacheBool = pTarget.GetBoolValue();
-                string _cacheString = pTarget.GetStringValue();
+                //  Since these values are not calculations, we don't need to pass the source parameters
+                float _cacheFloat = pTarget.Number(ref profile.dataPoints);
+                bool _cacheBool = pTarget.Flag(ref profile.dataPoints);
+                string _cacheString = pTarget.Text(ref profile.dataPoints);
 
-                switch (pTarget.dataType)
+                //  Draw the input label to adjust the default value for the data point
+                if (pTarget.calculation == null)
                 {
-                    case DataPoint.DataType.INT:
-                        if (profile.calculationNames[pIndex] == "<None>")
-                        {
-                            pTarget.SetValue(EditorGUILayout.IntField(pTarget.GetIntValue()));
-                            if (pTarget.GetIntValue() != _cacheInt) profile.UpdateCalculationPreviews();
-                        }
-                        else EditorGUILayout.LabelField($"{pTarget.GetIntValue()}");
-                        break;
-                    case DataPoint.DataType.FLOAT:
-                        if (profile.calculationNames[pIndex] == "<None>")
-                        {
-                            pTarget.SetValue(EditorGUILayout.FloatField(pTarget.GetFloatValue()));
-                            if (pTarget.GetFloatValue() != _cacheFloat) profile.UpdateCalculationPreviews();
-                        }
-                        else EditorGUILayout.LabelField($"{pTarget.GetFloatValue()}");
-                        break;
-                    case DataPoint.DataType.BOOL:
-                        if (profile.calculationNames[pIndex] == "<None>")
-                        {
-                            pTarget.SetValue(EditorGUILayout.Toggle(pTarget.GetBoolValue()));
-                            if (pTarget.GetBoolValue() != _cacheBool) profile.UpdateCalculationPreviews();
-                        }
-                        else EditorGUILayout.LabelField($"{pTarget.GetBoolValue()}");
-                        break;
-                    case DataPoint.DataType.STRING:
-                        if (profile.calculationNames[pIndex] == "<None>")
-                        {
-                            pTarget.SetValue(EditorGUILayout.TextField(pTarget.GetStringValue()));
-                            if (pTarget.GetStringValue() != _cacheString) profile.UpdateCalculationPreviews();
-                        }
-                        else EditorGUILayout.LabelField($"{pTarget.GetStringValue()}");
-                        break;
+                    //  Since these values are not calculations, we don't need to pass the source parameters
+                    switch (pTarget.type.SetTypeString())
+                    {
+                        case "float":
+                            float _floatVal = EditorGUILayout.FloatField(pTarget.Number(ref profile.dataPoints));
+                            if (_floatVal != _cacheFloat)
+                            {
+                                pTarget.Set(_floatVal);
+                                EditorPrefs.DeleteKey("CustomAnalyticsAutoSave");
+                            }
+                            break;
+                        case "bool":
+                            bool _boolVal = EditorGUILayout.Toggle(pTarget.Flag(ref profile.dataPoints));
+                            if (_boolVal != _cacheBool)
+                            {
+                                pTarget.Set(_boolVal);
+                                EditorPrefs.DeleteKey("CustomAnalyticsAutoSave");
+                            }
+                            break;
+                        case "string":
+                            string _stringVal = EditorGUILayout.TextField(pTarget.Text(ref profile.dataPoints));
+                            if (_stringVal != _cacheString)
+                            {
+                                pTarget.Set(_stringVal);
+                                EditorPrefs.DeleteKey("CustomAnalyticsAutoSave");
+                            }
+                            break;
+                    }
+                }
+
+                //  Add a custom label if the output type is different than the input type
+                if (pTarget.calculation != null || pTarget.type.SetTypeString() != pTarget.type.GetTypeString())
+                {
+                    switch (pTarget.type.GetTypeString())
+                    {
+                        case "float":
+                            GUILayout.Label($"{pTarget.Number(ref profile.dataPoints)}");
+                            break;
+                        case "bool":
+                            GUILayout.Label($"{pTarget.Flag(ref profile.dataPoints)}");
+                            break;
+                        case "string":
+                            GUILayout.Label($"{pTarget.Text(ref profile.dataPoints)}");
+                            break;
+                    }
                 }
 
                 EditorGUILayout.EndHorizontal();
@@ -511,54 +702,56 @@ namespace CodySource
             /// </summary>
             private void _DrawCalculationOptions(DataPoint pTarget, int pIndex)
             {
-                if (profile.calculationNames[pIndex] != "<None>" || profile.calculationNames.FindAll(c => c == "<None>").Count > 1)
+                if (pTarget.calculation != null || profile.dataPoints.FindAll(d => d.calculation == null).Count > 1)
                 {
                     //  Get current information
-                    string _cal = profile.calculationNames[pIndex];
-                    int _index = Mathf.Max(calulationOptions.IndexOf(_cal), 0);
-                    int _cache = _index;
-
-                    //  Perform pop-up & update information
+                    string _cache = pTarget.calculationString;
+                    int _cacheIndex = calculationNames.IndexOf(pTarget.calculationString);
                     EditorGUILayout.BeginVertical(GUILayout.Width(table.GetColumnRect(5).width - 3f));
-                    _index = EditorGUILayout.Popup(_index, calulationOptions.ToArray(), GUILayout.Width(table.GetColumnRect(5).width - 3f));
-                    profile.calculationNames[pIndex] = calulationOptions[_index];
-                    _cal = profile.calculationNames[pIndex];
-
-                    //  Clear source selections if no calculation is selected
-                    if (_cal == "<None>")
+                    int _calculationIndex = EditorGUILayout.Popup(_cacheIndex, calculationNames.ToArray(), GUILayout.Width(table.GetColumnRect(5).width - 4f));
+                    string _calculationName = calculationNames[_calculationIndex];
+                    //  If there was a change
+                    if (_cacheIndex != _calculationIndex)
                     {
-                        profile.datapointSourceSelections[pIndex].sources.Clear();
-                    }
-                    else
-                    {
-                        //  Add sources until within range
-                        while (profile.datapointSourceSelections[pIndex].sources.Count < calculationRanges[_cal].start)
+                        //  If the calculation was reset
+                        if (_calculationName == "<None>")
                         {
-                            //  Find the first data point that is not the current data point and does not use the current data point as a source
-                            int def = profile.datapointSourceSelections.FindIndex(s =>
+                            pTarget.calculationString = "<None>";
+                            pTarget.calculation = null;
+                            pTarget.sources.Clear();
+                        }
+                        else
+                        {
+                            //  Update the calculation information
+                            pTarget.calculationString = _calculationName;
+                            pTarget.calculation = (Calculations._Calculation)System.Activator.CreateInstance(
+                                System.Type.GetType($"CodySource.CustomAnalytics.Calculations.{_calculationName}"));
+                            //  Add sources until within range
+                            while (pTarget.sources.Count < pTarget.calculation.RequiredDataPoints().start)
                             {
-                                int _index = profile.datapointSourceSelections.IndexOf(s);
-                                return (_index != pIndex && !profile.DoesSourceLoopExist(pIndex, _index));
-                            });
-                            profile.datapointSourceSelections[pIndex].sources.Add(def);
-                            profile.UpdateCalculationPreviews();
+                                //  Find the first data point that is not the current data point and does not use the current data point as a source
+                                int def = profile.dataPoints.FindIndex(d =>
+                                {
+                                    int _index = profile.dataPoints.IndexOf(d);
+                                    return (_index != pIndex && !profile.DoesSourceLoopExist(pIndex, _index));
+                                });
+                                pTarget.sources.Add(def);
+                            }
+                            //  Remove sources until within range
+                            while (pTarget.sources.Count > pTarget.calculation.RequiredDataPoints().end)
+                            {
+                                pTarget.sources.RemoveAt(pTarget.sources.Count - 1);
+                            }
                         }
-                        //  Remove sources until within range
-                        while (profile.datapointSourceSelections[pIndex].sources.Count > calculationRanges[_cal].end)
-                        {
-                            profile.datapointSourceSelections[pIndex].sources.RemoveAt(profile.datapointSourceSelections[pIndex].sources.Count - 1);
-                            profile.UpdateCalculationPreviews();
-                        }
-                        EditorGUILayout.LabelField(calculationDescriptions[_cal], EditorStyles.largeLabel, GUILayout.Width(table.GetColumnRect(5).width - 1f));
+                        profile.UpdateAvailableSources();
+                        EditorPrefs.DeleteKey("CustomAnalyticsAutoSave");
+                    }
+                    if (pTarget.calculation != null)
+                    {
+                        //  Draw the calculation description
+                        GUILayout.Label(pTarget.calculation.CalculationDescription(), EditorStyles.largeLabel, GUILayout.Width(table.GetColumnRect(5).width - 4f));
                     }
                     EditorGUILayout.EndVertical();
-                    //  If there was a change in selection
-                    if (_cache != _index)
-                    {
-                        profile.datapointSourceSelections[pIndex].sources.Clear();
-                        profile.UpdateAvailableSources();
-                        profile.UpdateCalculationPreviews();
-                    }
                 }
             }
 
@@ -576,68 +769,80 @@ namespace CodySource
 
                 GUILayout.BeginVertical();
 
-                string _cal = profile.calculationNames[pIndex];
-                if (_cal != "<None>")
+                if (pTarget.calculationString != "<None>")
                 {
-                    int count = profile.datapointSourceSelections[pIndex].sources.Count;
-                    for (int i = 0; i < count; i ++)
+                    int count = pTarget.sources.Count;
+                    int _remove = -1;
+                    for (int i = 0; i < count; i++)
                     {
-                        int cache = profile.datapointSourceSelections[pIndex].sources[i];
-                        EditorGUILayout.BeginHorizontal(GUILayout.Width(table.GetColumnRect(6).width));
-                        List<string> sources = new List<string>(profile.availableSources.ToArray());
-                        for (int s = 0; s < sources.Count; s++)
+                        int _sourceCacheIndex = pTarget.sources[i];
+                        EditorGUILayout.BeginHorizontal(GUILayout.Width(table.GetColumnRect(6).width - 3f));
+
+                        //  Filter the available datapoint sources to prevent selection of invalid datapoints
+                        List<string> sourceOptions = new List<string>(profile.dataPointNames.ToArray());
+                        for (int s = 0; s < sourceOptions.Count; s++)
                         {
-                            sources[s] = (s == pIndex) ? "" : sources[s];
-                            sources[s] = profile.DoesSourceLoopExist(pIndex, s) ? "" : sources[s];
+                            sourceOptions[s] = (s == pIndex) ? "" : sourceOptions[s];
+                            sourceOptions[s] = profile.DoesSourceLoopExist(pIndex, s) ? "" : sourceOptions[s];
                         }
-                        EditorGUILayout.LabelField($" [{i}]", GUILayout.Width(count <= 10? 20f : ((count <= 100)? 27f : 35f)));
-                        int index = EditorGUILayout.Popup(profile.datapointSourceSelections[pIndex].sources[i], sources.ToArray(),
-                            GUILayout.ExpandWidth(true));
-                        //  If a new selection was made
-                        if (index != cache)
+
+                        EditorGUILayout.LabelField($" [{i}]", GUILayout.Width(count <= 10 ? 20f : ((count <= 100) ? 27f : 35f)));
+
+                        //  Display source pop-up
+                        int sourceIndex = EditorGUILayout.Popup(pTarget.sources[i], sourceOptions.ToArray(), GUILayout.ExpandWidth(true));
+
+                        //  If a change was made
+                        if (sourceIndex != _sourceCacheIndex)
                         {
                             //  Reset the index if the same datapoint was selected
-                            if (index == pIndex)
+                            if (sourceIndex == pIndex)
                             {
                                 Debug.LogWarning("A datapoint cannot list itself as a source.");
-                                index = cache;
+                                sourceIndex = _sourceCacheIndex;
                             }
                             //  Reset if the dataPoint has this datapoint as a source
-                            if (profile.datapointSourceSelections[index].sources.Contains(pIndex))
+                            if (pTarget.sources.Contains(pIndex))
                             {
-                                Debug.LogWarning($"\"{profile.dataPoints[index].id}\" is already using \"{pTarget.id}\" as a source.");
-                                index = cache;
+                                Debug.LogWarning($"\"{profile.dataPoints[sourceIndex].id}\" is already using \"{pTarget.id}\" as a source.");
+                                sourceIndex = _sourceCacheIndex;
                             }
+                            //  Set the value
+                            pTarget.sources[i] = sourceIndex;
+                            EditorPrefs.DeleteKey("CustomAnalyticsAutoSave");
                         }
-                        profile.datapointSourceSelections[pIndex].sources[i] = index;
 
-                        //  Update calculated previews with new, filtered sources
-                        if (index != cache) profile.UpdateCalculationPreviews();
-
+                        //  Draw the remove button for the source
                         GUI.backgroundColor = Color.red;
-                        if (profile.datapointSourceSelections[pIndex].sources.Count > calculationRanges[_cal].start && GUILayout.Button("X"))
+                        if (pTarget.sources.Count > pTarget.calculation.RequiredDataPoints().start && GUILayout.Button("X"))
                         {
                             //  Remove source
-                            profile.datapointSourceSelections[pIndex].sources.RemoveAt(i);
-                            profile.UpdateCalculationPreviews();
+                            _remove = i;
                         }
                         GUI.backgroundColor = Color.white;
                         EditorGUILayout.EndHorizontal();
                     }
+                    if (_remove != -1)
+                    {
+                        //  Remove source
+                        pTarget.sources.RemoveAt(_remove);
+                        EditorPrefs.DeleteKey("CustomAnalyticsAutoSave");
+                    }
+                    //  Draw Add Source button
                     GUI.backgroundColor = Color.green;
-                    if (profile.datapointSourceSelections[pIndex].sources.Count < calculationRanges[_cal].end && GUILayout.Button("+"))
+                    if (pTarget.sources.Count < pTarget.calculation.RequiredDataPoints().end && GUILayout.Button("+"))
                     {
                         //  Find the first data point that is not the current data point and does not use the current data point as a source
-                        int def = profile.datapointSourceSelections.FindIndex(s =>
+                        int def = profile.dataPoints.FindIndex(d =>
                         {
-                            int _index = profile.datapointSourceSelections.IndexOf(s);
+                            int _index = profile.dataPoints.IndexOf(d);
                             return (_index != pIndex && !profile.DoesSourceLoopExist(pIndex, _index));
                         });
-                        profile.datapointSourceSelections[pIndex].sources.Add(def);
-                        profile.UpdateCalculationPreviews();
+                        pTarget.sources.Add(def);
+                        EditorPrefs.DeleteKey("CustomAnalyticsAutoSave");
                     }
                     GUI.backgroundColor = Color.white;
                 }
+
                 GUILayout.EndVertical();
             }
 
@@ -652,18 +857,7 @@ namespace CodySource
                 if (GUILayout.Button("Add Data Point", GUILayout.Height(EditorGUIUtility.singleLineHeight * 2f), GUILayout.Width(100f)))
                 {
                     //  Get next dataPoint id
-                    string newID = $"DataPoint{profile.dataPoints.Count}";
-                    int _tries = 1;
-                    while (profile.dataPoints.Exists(d => d.id == newID))
-                    {
-                        newID = $"DataPoint{profile.dataPoints.Count + _tries}";
-                        _tries++;
-                    }
-                    profile.dataPoints.Add(new DataPoint() { id = newID });
-                    profile.datapointSourceSelections.Add(new ProfileDisplay.SourceSelections() { sources = new List<int>() });
-                    profile.calculationNames.Add("<None>");
-                    profile.UpdateAvailableSources();
-                    profile.UpdateCalculationPreviews();
+                    profile.state = ProfileDisplay.PROFILE_STATE.ADDING;
                 }
                 GUI.backgroundColor = Color.white;
                 GUILayout.FlexibleSpace();

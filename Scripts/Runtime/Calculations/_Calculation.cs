@@ -18,10 +18,9 @@ namespace CodySource
                 /// A short description of what the calulation output will look like
                 /// </summary>
                 public abstract string CalculationDescription();
-                public abstract int CalculateInt(params DataPoint[] pDataPoints);
-                public abstract float CalculateFloat(params DataPoint[] pDataPoints);
-                public abstract bool CalculateBool(params DataPoint[] pDataPoints);
-                public abstract string CalculateString(params DataPoint[] pDataPoints);
+                public abstract float CalculateNumber(ref List<DataPoint> pProfile, params int[] pSources);
+                public abstract bool CalculateFlag(ref List<DataPoint> pProfile, params int[] pSources);
+                public abstract string CalculateText(ref List<DataPoint> pProfile, params int[] pSources);
             }                
         }
     }

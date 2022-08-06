@@ -12,22 +12,49 @@ namespace CodySource
         [System.Serializable]
         public class ProfileDisplay
         {
+            #region ENUMERATIONS
+
+            public enum PROFILE_STATE { LOADING, IDLE, EXPORTING, ADDING, DELETING, SWAPING, COMPILING };
+
+            #endregion
+
             #region PROPERTIES
 
+            /// <summary>
+            /// The name of the profile
+            /// </summary>
             public string name => _name;
             [SerializeField] private string _name = "";
-            public List<DataPoint> dataPoints = new List<DataPoint>();
-
-            //  Window Information
-            public List<string> availableSources = new List<string>();
-            public List<string> calculationNames = new List<string>();
-            public List<SourceSelections> datapointSourceSelections = new List<SourceSelections>();
-            public bool isExporting = false;
-            public int deletedIndex = -1;
-            public int[] swapIndex = new int[2] { -1, -1 };
 
             /// <summary>
-            /// The datapoints that have already been recalculated
+            /// A description for the profile
+            /// </summary>
+            public string description = "";
+
+            /// <summary>
+            /// The profile's contained datapoints
+            /// </summary>
+            public List<DataPoint> dataPoints = new List<DataPoint>();
+
+            /// <summary>
+            /// The cached list of available datapoint sources when selecting a source (so a new list doesn't have to be calculated every frame)
+            /// </summary>
+            public List<string> dataPointNames = new List<string>();
+
+            /// <summary>
+            /// The state of the profile
+            /// </summary>
+            public PROFILE_STATE state = PROFILE_STATE.LOADING;
+
+            /// <summary>
+            /// Any information that needs to be passed along when the state of the profile is different
+            /// - DELETING: index 0
+            /// - SWAPING: index 0, index 1
+            /// </summary>
+            public int[] stateInformation = new int[2] { -1, -1 };
+
+            /// <summary>
+            /// When calculating previews, this tracks which previews have already been calcuated
             /// </summary>
             public HashSet<int> recalculatedPreviews = new HashSet<int>();
 
@@ -45,51 +72,33 @@ namespace CodySource
             /// </summary>
             public void UpdateAvailableSources()
             {
-                availableSources.Clear();
-                dataPoints.ForEach(d => availableSources.Add(d.id));
+                dataPointNames.Clear();
+                dataPoints.ForEach(d => dataPointNames.Add(d.id));
             }
 
             /// <summary>
-            /// Recalculates all the data point value previews
+            /// Adds a new data point with the provided type
             /// </summary>
-            public void UpdateCalculationPreviews()
+            public void AddDataPoint(string _pType)
             {
-                if (recalculatedPreviews == null) recalculatedPreviews = new HashSet<int>();
-                recalculatedPreviews.Clear();
-                for (int i = 0; i < dataPoints.Count; i++) RecaculatePreviewValues(i);
-
-                void RecaculatePreviewValues(int pTarget)
+                state = PROFILE_STATE.IDLE;
+                string newID = $"DataPoint{dataPoints.Count}";
+                int _tries = 1;
+                while (dataPoints.Exists(d => d.id == newID))
                 {
-                    if (recalculatedPreviews.Contains(pTarget)) return;
-                    recalculatedPreviews.Add(pTarget);
-                    if (calculationNames[pTarget] == "<None>") return;
-                    else
-                    {
-                        for (int i = 0; i < datapointSourceSelections[pTarget].sources.Count; i++)
-                        {
-                            RecaculatePreviewValues(datapointSourceSelections[pTarget].sources[i]);
-                        }
-                        //  Perform Calculation
-                        System.Type[] types = Assembly.GetExecutingAssembly().GetTypes();
-                        foreach (System.Type type in types)
-                        {
-                            if (type.IsSubclassOf(typeof(Calculations._Calculation)) && type.Name == calculationNames[pTarget])
-                            {
-                                Calculations._Calculation _cal = (Calculations._Calculation)System.Activator.CreateInstance(type);
-                                DataPoint[] _params = new DataPoint[datapointSourceSelections[pTarget].sources.Count];
-                                for (int i = 0; i < _params.Length; i++)
-                                {
-                                    _params[i] = dataPoints[datapointSourceSelections[pTarget].sources[i]];
-                                }
-                                dataPoints[pTarget].SetValue(_cal.CalculateInt(_params));
-                                dataPoints[pTarget].SetValue(_cal.CalculateFloat(_params));
-                                dataPoints[pTarget].SetValue(_cal.CalculateBool(_params));
-                                dataPoints[pTarget].SetValue(_cal.CalculateString(_params));
-                                break;
-                            }
-                        }
-                    }
+                    newID = $"DataPoint{dataPoints.Count + _tries}";
+                    _tries++;
                 }
+                string _typeString = _pType;
+                DataTypes._DataType _type = (DataTypes._DataType)System.Activator.CreateInstance(
+                    System.Type.GetType($"CodySource.CustomAnalytics.DataTypes.{_typeString}"));
+                dataPoints.Add(new DataPoint()
+                {
+                    id = newID,
+                    typeString = _pType,
+                    type = _type
+                });
+                UpdateAvailableSources();
             }
 
             /// <summary>
@@ -97,21 +106,26 @@ namespace CodySource
             /// </summary>
             public void DeleteDataPoint()
             {
+                //  Reset state
+                state = PROFILE_STATE.IDLE;
+
                 //  Remove source references to the data point
                 for (int d = 0; d < dataPoints.Count; d++)
                 {
-                    for (int s = 0; s < datapointSourceSelections[d].sources.Count; s++)
+                    List<int> _removeAt = new List<int>();
+                    for (int s = 0; s < dataPoints[d].sources.Count; s ++)
                     {
-                        int v = datapointSourceSelections[d].sources[s];
-                        datapointSourceSelections[d].sources[s] = (v > deletedIndex) ? v - 1 : v;
+                        if (dataPoints[d].sources[s] == stateInformation[0]) _removeAt.Add(s);
+                        else if (dataPoints[d].sources[s] > stateInformation[0]) dataPoints[d].sources[s] -= 1;
                     }
+                    if (_removeAt.Count > 0) _removeAt.ForEach(r => dataPoints[d].sources.RemoveAt(r));
                 }
-                dataPoints.RemoveAt(deletedIndex);
-                datapointSourceSelections.RemoveAt(deletedIndex);
-                calculationNames.RemoveAt(deletedIndex);
+
+                //  Remove the datapoint
+                dataPoints.RemoveAt(stateInformation[0]);
+
+                //  Refresh the sources list
                 UpdateAvailableSources();
-                UpdateCalculationPreviews();
-                deletedIndex = -1;
             }
 
             /// <summary>
@@ -119,32 +133,47 @@ namespace CodySource
             /// </summary>
             public void SwapDataPoints()
             {
-                //  Swap the items
-                int p1 = swapIndex[0];
-                int p2 = swapIndex[1];
-                //  Update all source references
-                for (int d = 0; d < dataPoints.Count; d++)
-                {
-                    for (int s = 0; s < datapointSourceSelections[d].sources.Count; s++)
-                    {
-                        int v = datapointSourceSelections[d].sources[s];
-                        datapointSourceSelections[d].sources[s] = (v == p1) ? -1 : ((v == p2) ? p1 : v);
-                        v = datapointSourceSelections[d].sources[s];
-                        datapointSourceSelections[d].sources[s] = (v == -1) ? p2 : v;
-                    }
-                }
+                //  Quick reference
+                int p1 = stateInformation[0];
+                int p2 = stateInformation[1];
+
                 //  Perform Swap
                 int _replace = (p1 < p2) ? p1 : p2;
                 int _remove = (p1 > p2) ? p1 : p2;
-                dataPoints.Insert(_replace, new DataPoint(dataPoints[_remove]));
-                datapointSourceSelections.Insert(_replace, new SourceSelections() { sources = new List<int>(datapointSourceSelections[_remove].sources) });
-                calculationNames.Insert(_replace, calculationNames[_remove]);
+                DataPoint _clone = new DataPoint(dataPoints[_remove]);
+                dataPoints.Insert(_replace, _clone);
                 dataPoints.RemoveAt(_remove + 1);
-                datapointSourceSelections.RemoveAt(_remove + 1);
-                calculationNames.RemoveAt(_remove + 1);
-                swapIndex = new int[] { -1, -1};
+
+                //  Update references for all datapoints
+                for (int i = 0; i < dataPoints.Count; i ++)
+                {
+                    for (int s = 0; s < dataPoints[i].sources.Count; s ++)
+                    {
+                        dataPoints[i].sources[s] = (dataPoints[i].sources[s] == p1) ? p2 :
+                            (dataPoints[i].sources[s] == p2) ? p1 : dataPoints[i].sources[s];
+                    }
+                }
+
+                //  Refresh the sources list & recalculate the calculation previews
                 UpdateAvailableSources();
-                UpdateCalculationPreviews();
+
+                //  Reset profile state
+                state = PROFILE_STATE.IDLE;
+                stateInformation[0] = -1;
+                stateInformation[1] = -1;
+            }
+
+            /// <summary>
+            /// Deserialize the display
+            /// </summary>
+            public void Deserialize()
+            {
+                dataPoints.ForEach(d => {
+                    d.calculation = (d.calculationString != "<None>") ? (Calculations._Calculation)System.Activator.CreateInstance(
+                        System.Type.GetType($"CodySource.CustomAnalytics.Calculations.{d.calculationString}")) : null;
+                    d.type = (DataTypes._DataType)System.Activator.CreateInstance(
+                        System.Type.GetType($"CodySource.CustomAnalytics.DataTypes.{d.typeString}"));
+                });
             }
 
             /// <summary>
@@ -152,26 +181,24 @@ namespace CodySource
             /// </summary>
             public string Serialize()
             {
-                //serializedDataPoints = JsonUtility.ToJson(dataPoints);
                 return JsonUtility.ToJson(this);
             }
 
             /// <summary>
             /// Verifies if a potential source dependency loop exists
             /// </summary>
-            public bool DoesSourceLoopExist(int pStartIndex, int pTarget)
+            public bool DoesSourceLoopExist(int pStart, int pTarget)
             {
                 bool r = false;
-                if (calculationNames[pTarget] == "<None>") return false;
+                if (dataPoints[pTarget].sources.Count == 0) return false;
                 else
                 {
-                    for (int i = 0; i < datapointSourceSelections[pTarget].sources.Count; i ++)
+                    for (int i = 0; i < dataPoints[pTarget].sources.Count; i++)
                     {
-                        int _source = datapointSourceSelections[pTarget].sources[i];
-                        if (_source == pStartIndex) return true;
+                        if (dataPoints[pTarget].sources[i] == pStart) return true;
                         else
                         {
-                            r = DoesSourceLoopExist(pStartIndex, _source);
+                            r = DoesSourceLoopExist(pStart, dataPoints[pTarget].sources[i]);
                             if (r) return true;
                         }
                     }
@@ -184,7 +211,8 @@ namespace CodySource
             /// </summary>
             public void GenerateCS()
             {
-                isExporting = false;
+                //  Set the state
+                state = PROFILE_STATE.COMPILING;
                 _WriteProfileScript();
             }
 
@@ -193,11 +221,14 @@ namespace CodySource
             /// </summary>
             public void GenerateObject()
             {
-                UnityEditor.EditorPrefs.DeleteKey("NewAnalyticsProfile");
+                //  Either create or update the profile asset
                 List<string> _assets = new List<string> (UnityEditor.AssetDatabase.FindAssets($"t:{name}"));
                 if (_assets.Count == 0)
                 {
+                    Texture2D texture = (Texture2D)UnityEditor.AssetDatabase.LoadAssetAtPath(
+                        "Packages/com.codysource.customanalytics/Editor Resources/Gizmos/AnalyticsIcon.png", typeof(Texture2D));
                     ScriptableObject _o = ScriptableObject.CreateInstance(name);
+                    UnityEditor.EditorGUIUtility.SetIconForObject(_o, texture);
                     UnityEditor.AssetDatabase.CreateAsset(_o, $"Assets/{name}.asset");
                     UnityEditor.AssetDatabase.SaveAssets();
                     UnityEditor.AssetDatabase.Refresh();
@@ -205,23 +236,19 @@ namespace CodySource
                 }
                 else
                 {
+                    Texture2D texture = (Texture2D)UnityEditor.AssetDatabase.LoadAssetAtPath(
+                        "Packages/com.codysource.customanalytics/Editor Resources/Gizmos/AnalyticsIcon.png", typeof(Texture2D));
                     AnalyticsProfile _prof = (AnalyticsProfile)UnityEditor.AssetDatabase
                         .LoadAssetAtPath(UnityEditor.AssetDatabase.GUIDToAssetPath(_assets[0]), typeof(AnalyticsProfile));
+                    UnityEditor.EditorGUIUtility.SetIconForObject(_prof, texture);
                     UnityEditor.EditorUtility.SetDirty(_prof);
                     UnityEditor.AssetDatabase.SaveAssets();
                     UnityEditor.AssetDatabase.Refresh();
                     UnityEditor.EditorGUIUtility.PingObject(_prof);
                 }
-            }
 
-            #endregion
-
-            #region SUB-CLASSES
-
-            [System.Serializable]
-            public struct SourceSelections
-            {
-                public List<int> sources;
+                //  Update the state
+                state = PROFILE_STATE.IDLE;
             }
 
             #endregion
@@ -273,7 +300,11 @@ namespace CodySource
                     "\t\t\t/// Runtime Definition\n" +
                     "\t\t\tpublic class AnalyticsRuntime\n" +
                     "\t\t\t{\n" +
+                    "\t\t\t\tpublic List<DataPoint> dataPoints = new List<DataPoint>() {\n" +
                     "{RuntimeDefinition}" +
+                    "\t\t\t\t};\n" +
+                    "\n" +
+                    "{RuntimeDataPointRefs}" +
                     "\n" +
                     "\t\t\t\t[System.Serializable]\n" +
                     "\t\t\t\tpublic struct Export\n" +
@@ -291,6 +322,7 @@ namespace CodySource
                 string _output = _template
                     .Replace("{RuntimeExports}", _GenerateRuntimeExports())
                     .Replace("{RuntimeAccessorsMutators}", _GenerateRuntimeAccessorsMutators())
+                    .Replace("{RuntimeDataPointRefs}", _GenerateRuntimeDataPointRefs())
                     .Replace("{RuntimeDefinition}", _GenerateRuntimeDefinition())
                     .Replace("{RuntimeExportDefinition}", _GenerateRuntimeExportDefinition());
 
@@ -298,15 +330,16 @@ namespace CodySource
                 File.WriteAllText($"./Assets/{name}.cs", _output);
 
                 //  Refresh the asset database
-                UnityEditor.EditorPrefs.SetBool("NewAnalyticsProfile", true);
                 UnityEditor.AssetDatabase.ImportAsset($"Assets/{name}.cs");
+                UnityEditor.AssetDatabase.Refresh();
 
+                //  Generate the exported datapoint callbacks
                 string _GenerateRuntimeExports()
                 {
                     string _out = "";
                     for (int i = 0; i < dataPoints.Count; i++)
                     {
-                        if (dataPoints[i].isExported)
+                        if (dataPoints[i].export)
                         {
                             _out += $"\t\t\t\t\t{dataPoints[i].id} = {dataPoints[i].id}_Get(),\n";
                         }
@@ -314,83 +347,60 @@ namespace CodySource
                     return _out;
                 }
 
+                //  Generate the accessors and mutators for the datapoints
+                string _GenerateRuntimeAccessorsMutators()
+                {
+                    string _out = "";
+                    for (int i = 0; i < dataPoints.Count; i++) _out += dataPoints[i].GetProfileGenerationString();
+                    return _out;
+                }
+
+                //  Generate the definition for each datapoint
                 string _GenerateRuntimeDefinition()
                 {
                     string _out = "";
                     for (int i = 0; i < dataPoints.Count; i++)
                     {
+                        string _sources = "";
+                        dataPoints[i].sources.ForEach(s => _sources += $"{s}, ");
                         _out +=
-                        $"\t\t\t\tpublic DataPoint {dataPoints[i].id} = new DataPoint()\n" +
-                        "\t\t\t\t{\n" +
-                        $"\t\t\t\t\tid = \"{dataPoints[i].id}\",\n" +
-                        $"\t\t\t\t\tisExported = {dataPoints[i].isExported.ToString().ToLower()},\n" +
-                        $"\t\t\t\t\tdataType = DataPoint.DataType.{dataPoints[i].dataType},\n" +
-                        $"\t\t\t\t\tintVal = {dataPoints[i].GetIntValue()},\n" +
-                        $"\t\t\t\t\tfloatVal = {dataPoints[i].GetFloatValue()}f,\n" +
-                        $"\t\t\t\t\tboolVal = {dataPoints[i].GetBoolValue().ToString().ToLower()},\n" +
-                        $"\t\t\t\t\tstringVal = \"{dataPoints[i].GetStringValue().Replace("\"","\\\"")}\",\n" +
-                        "\t\t\t\t};\n" +
-                        "\n";
-                    }
-                    return _out.Substring(0, _out.Length - 1);
-                }
-
-                string _GenerateRuntimeAccessorsMutators()
-                {
-                    string _out = "";
-                    for (int i = 0; i < dataPoints.Count; i++)
-                    {
-                        string _id = dataPoints[i].id;
-                        string _param = dataPoints[i].dataType switch
-                        {
-                            DataPoint.DataType.INT => "Int",
-                            DataPoint.DataType.FLOAT => "Float",
-                            DataPoint.DataType.BOOL => "Bool",
-                            DataPoint.DataType.STRING => "String",
-                            _ => "",
-                        };
-                        //  A standard datapoint
-                        if (datapointSourceSelections[i].sources.Count == 0)
-                        {
-                            _out +=
-                                $"\t\t\t//  DataPoint {_id}\n" +
-                                $"\t\t\tpublic void {_id}_Set ({_param.ToLower()} pVal) => runtime.{_id}.SetValue(pVal);\n" +
-                                $"\t\t\tpublic {_param.ToLower()} {_id}_Get() => runtime.{_id}.Get{_param}Value();\n";
-                            string _conditionalMethods = dataPoints[i].dataType switch
-                            {
-                                DataPoint.DataType.INT => 
-                                $"\t\t\tpublic void {_id}_Add(int pVal = 1) => runtime.{_id}.AddIntValue(pVal);\n",
-                                DataPoint.DataType.FLOAT =>
-                                $"\t\t\tpublic void {_id}_Add(float pVal = 1) => runtime.{_id}.AddFloatValue(pVal);\n",
-                                DataPoint.DataType.BOOL =>
-                                $"\t\t\tpublic void {_id}_Toggle() => runtime.{_id}.ToggleBoolValue();\n",
-                                DataPoint.DataType.STRING => "",
-                                _ => "",
-                            };
-                            _out += $"{_conditionalMethods}\n";
-                        }
-                        //  A calculated datapoint
-                        else
-                        {
-                            string _sources = "";
-                            for (int s = 0; s < datapointSourceSelections[i].sources.Count; s++) _sources += $"runtime.{dataPoints[datapointSourceSelections[i].sources[s]].id},";
-                            _out +=
-                                $"\t\t\t//  DataPoint {_id}\n" +
-                                $"\t\t\tpublic {_param.ToLower()} {_id}_Get() => new Calculations.{calculationNames[i]}().Calculate{_param}({_sources.TrimEnd(',')});\n" +
-                                "\n";
-                        }
+                        $"\t\t\t\t\tnew DataPoint()\n" +
+                        "\t\t\t\t\t{\n" +
+                        $"\t\t\t\t\t\tid = \"{dataPoints[i].id}\",\n" +
+                        $"\t\t\t\t\t\texport = {dataPoints[i].export.ToString().ToLower()},\n" +
+                        $"\t\t\t\t\t\tnumber = {dataPoints[i].Number(ref dataPoints)}f,\n" +
+                        $"\t\t\t\t\t\tflag = {dataPoints[i].Flag(ref dataPoints).ToString().ToLower()},\n" +
+                        $"\t\t\t\t\t\ttext = \"{dataPoints[i].Text(ref dataPoints).Replace("\"","\\\"")}\",\n" +
+                        $"\t\t\t\t\t\tsources = new List<int>(new int[] {{{((_sources == "")? ", " : _sources)[..^2]}}}),\n" +
+                        $"\t\t\t\t\t\ttypeString = \"{dataPoints[i].typeString}\",\n" +
+                        $"\t\t\t\t\t\ttype = new DataTypes.{dataPoints[i].typeString}(),\n" +
+                        $"\t\t\t\t\t\tcalculationString = \"{dataPoints[i].calculationString}\",\n" +
+                        ((dataPoints[i].calculationString != "<None>") ? $"\t\t\t\t\t\tcalculation = new Calculations.{dataPoints[i].calculationString}(),\n" : "") +
+                        "\t\t\t\t\t},\n";
                     }
                     return _out;
                 }
 
+                //  Generates the datapoint reference properties
+                string _GenerateRuntimeDataPointRefs()
+                {
+                    string _out = "";
+                    for (int i = 0; i < dataPoints.Count; i++)
+                    {
+                        _out += $"\t\t\t\tpublic DataPoint {dataPoints[i].id} => dataPoints[{i}];\n";
+                    }
+                    return _out;
+                }
+
+                //  Generate the export definition for the runtime class
                 string _GenerateRuntimeExportDefinition()
                 {
                     string _out = "";
                     for (int i = 0; i < dataPoints.Count; i ++)
                     {
-                        if (dataPoints[i].isExported)
+                        if (dataPoints[i].export)
                         {
-                            _out += $"\t\t\t\t\tpublic {dataPoints[i].dataType.ToString().ToLower()} {dataPoints[i].id};\n";
+                            _out += $"\t\t\t\t\tpublic {dataPoints[i].type.GetTypeString()} {dataPoints[i].id};\n";
                         }
                     }
                     return _out;
