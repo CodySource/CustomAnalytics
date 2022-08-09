@@ -228,7 +228,9 @@ namespace CodySource
                     Texture2D texture = (Texture2D)UnityEditor.AssetDatabase.LoadAssetAtPath(
                         "Packages/com.codysource.customanalytics/Editor Resources/Gizmos/AnalyticsIcon.png", typeof(Texture2D));
                     ScriptableObject _o = ScriptableObject.CreateInstance(name);
+#if UNITY_2021_OR_NEWER
                     UnityEditor.EditorGUIUtility.SetIconForObject(_o, texture);
+#endif
                     UnityEditor.AssetDatabase.CreateAsset(_o, $"Assets/{name}.asset");
                     UnityEditor.AssetDatabase.SaveAssets();
                     UnityEditor.AssetDatabase.Refresh();
@@ -240,7 +242,9 @@ namespace CodySource
                         "Packages/com.codysource.customanalytics/Editor Resources/Gizmos/AnalyticsIcon.png", typeof(Texture2D));
                     AnalyticsProfile _prof = (AnalyticsProfile)UnityEditor.AssetDatabase
                         .LoadAssetAtPath(UnityEditor.AssetDatabase.GUIDToAssetPath(_assets[0]), typeof(AnalyticsProfile));
+#if UNITY_2021_OR_NEWER
                     UnityEditor.EditorGUIUtility.SetIconForObject(_prof, texture);
+#endif
                     UnityEditor.EditorUtility.SetDirty(_prof);
                     UnityEditor.AssetDatabase.SaveAssets();
                     UnityEditor.AssetDatabase.Refresh();
@@ -251,9 +255,9 @@ namespace CodySource
                 state = PROFILE_STATE.IDLE;
             }
 
-            #endregion
+#endregion
 
-            #region PRIVATE METHODS
+#region PRIVATE METHODS
 
             /// <summary>
             /// Writes the profile script
@@ -371,7 +375,11 @@ namespace CodySource
                         $"\t\t\t\t\t\tnumber = {dataPoints[i].Number(ref dataPoints)}f,\n" +
                         $"\t\t\t\t\t\tflag = {dataPoints[i].Flag(ref dataPoints).ToString().ToLower()},\n" +
                         $"\t\t\t\t\t\ttext = \"{dataPoints[i].Text(ref dataPoints).Replace("\"","\\\"")}\",\n" +
+#if UNITY_2021_OR_NEWER
                         $"\t\t\t\t\t\tsources = new List<int>(new int[] {{{((_sources == "")? ", " : _sources)[..^2]}}}),\n" +
+#else
+                        $"\t\t\t\t\t\tsources = new List<int>(new int[] {{{((_sources == "") ? ", " : _sources).Substring(0, (_sources.Length - 2))}}}),\n" +
+#endif
                         $"\t\t\t\t\t\ttypeString = \"{dataPoints[i].typeString}\",\n" +
                         $"\t\t\t\t\t\ttype = new DataTypes.{dataPoints[i].typeString}(),\n" +
                         $"\t\t\t\t\t\tcalculationString = \"{dataPoints[i].calculationString}\",\n" +
@@ -407,7 +415,7 @@ namespace CodySource
                 }
             }
 
-            #endregion
+#endregion
         }
     }
 }
