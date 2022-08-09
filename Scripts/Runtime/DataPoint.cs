@@ -86,7 +86,7 @@ namespace CodySource
 #if UNITY_2021_OR_NEWER
                         $"\t\t\t{_def.scope} {_def.type} {id}_{_def.name}({((_pDefs == "") ? ", " : _pDefs)[..^2]}) => " +
 #else
-                        $"\t\t\t{_def.scope} {_def.type} {id}_{_def.name}({((_pDefs == "") ? ", " : _pDefs).Substring(0, _pDefs.Length - 2)}) => " +
+                        $"\t\t\t{_def.scope} {_def.type} {id}_{_def.name}({((_pDefs == "") ? "" : _pDefs.Substring(0, _pDefs.Length - 2))}) => " +
 #endif
                             $"((DataTypes.{type.CleanName()})runtime.{id}.type).{_def.name}(runtime.{id}{((_pVals == "")? "" : _pVals)});\n";
                     }

@@ -378,7 +378,7 @@ namespace CodySource
 #if UNITY_2021_OR_NEWER
                         $"\t\t\t\t\t\tsources = new List<int>(new int[] {{{((_sources == "")? ", " : _sources)[..^2]}}}),\n" +
 #else
-                        $"\t\t\t\t\t\tsources = new List<int>(new int[] {{{((_sources == "") ? ", " : _sources).Substring(0, (_sources.Length - 2))}}}),\n" +
+                        $"\t\t\t\t\t\tsources = new List<int>(new int[] {{{((_sources == "") ? "" : _sources.Substring(0, (_sources.Length - 2)))}}}),\n" +
 #endif
                         $"\t\t\t\t\t\ttypeString = \"{dataPoints[i].typeString}\",\n" +
                         $"\t\t\t\t\t\ttype = new DataTypes.{dataPoints[i].typeString}(),\n" +
