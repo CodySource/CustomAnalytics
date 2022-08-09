@@ -1,19 +1,22 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+#if UNITY_EDITOR
 using UnityEditor;
 using System.IO;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using UnityEditor.IMGUI.Controls;
+#endif
 
 namespace CodySource
 {
     namespace CustomAnalytics
     {
+#if UNITY_EDITOR
         public class ManagerWindow : EditorWindow
         {
-            #region PROPERTIES
+#region PROPERTIES
 
             public static string version = "2.0.0";
             public static EditorWindow win = null;
@@ -122,9 +125,9 @@ namespace CodySource
             /// </summary>
             private string exportSave = "";
 
-            #endregion
+#endregion
 
-            #region PUBLIC METHODS
+#region PUBLIC METHODS
 
             /// <summary>
             /// Load the provided profile
@@ -233,9 +236,9 @@ namespace CodySource
                 table = new MultiColumnHeader(tableHeaderState);
             }
 
-            #endregion
+#endregion
 
-            #region PRIVATE METHODS
+#region PRIVATE METHODS
 
             /// <summary>
             /// Updates the list of available datatype options
@@ -864,7 +867,10 @@ namespace CodySource
                 EditorGUILayout.EndHorizontal();
             }
 
-            #endregion
+#endregion
         }
+#else
+        public class ManagerWindow { }
+#endif
     }
 }

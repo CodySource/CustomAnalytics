@@ -1,14 +1,17 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+#if UNITY_EDITOR
 using System.IO;
 using System.Reflection;
 using System.Threading;
+#endif
 
 namespace CodySource
 {
     namespace CustomAnalytics
     {
+#if UNITY_EDITOR
         [System.Serializable]
         public class ProfileDisplay
         {
@@ -257,7 +260,7 @@ namespace CodySource
 
 #endregion
 
-#region PRIVATE METHODS
+            #region PRIVATE METHODS
 
             /// <summary>
             /// Writes the profile script
@@ -415,7 +418,10 @@ namespace CodySource
                 }
             }
 
-#endregion
+            #endregion
         }
+#else
+        public class ProfileDisplay {}        
+#endif
     }
 }
