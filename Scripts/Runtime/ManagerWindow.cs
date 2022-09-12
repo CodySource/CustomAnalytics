@@ -424,7 +424,71 @@ namespace CodySource
 
                 EditorGUILayout.BeginVertical();
 
-                EditorGUILayout.LabelField("This section reserved for more profile configurations.");
+                Exporter.StorageType _cachedType = profile.exportProfile.storageType;
+                EditorGUILayout.BeginHorizontal();
+                EditorGUILayout.LabelField("Export Type:", GUILayout.MaxWidth(100f));
+                profile.exportProfile.storageType = (Exporter.StorageType)EditorGUILayout.Popup((int)_cachedType,
+                    System.Enum.GetNames(typeof(Exporter.StorageType)));
+                if (profile.exportProfile.storageType != _cachedType) EditorPrefs.DeleteKey("CustomAnalyticsAutoSave");
+                EditorGUILayout.EndHorizontal();
+                switch (_cachedType)
+                {
+                    case Exporter.StorageType.PHP_SQL:
+                        EditorGUILayout.BeginHorizontal();
+                        EditorGUILayout.LabelField("Export URL:", GUILayout.MaxWidth(100f));
+                        EditorGUILayout.LabelField("https://", GUILayout.MaxWidth(50f));
+                        string _cachedURL = profile.exportProfile.sql_url;
+                        profile.exportProfile.sql_url = $"https://{EditorGUILayout.TextField(profile.exportProfile.sql_url.Replace($"/{profile.name}.php", "").Replace("https://",""))}/{profile.name}.php";
+                        if (profile.exportProfile.sql_url != _cachedURL) EditorPrefs.DeleteKey("CustomAnalyticsAutoSave");
+                        EditorGUILayout.LabelField($"/{profile.name}.php", GUILayout.MaxWidth(100f));
+                        EditorGUILayout.EndHorizontal();
+                        EditorGUILayout.BeginHorizontal();
+                        EditorGUILayout.LabelField("SQL Key:", GUILayout.MaxWidth(100f));
+                        string _cachedKey = profile.exportProfile.sql_url;
+                        profile.exportProfile.sql_key = EditorGUILayout.TextField(profile.exportProfile.sql_key);
+                        if (profile.exportProfile.sql_key != _cachedKey) EditorPrefs.DeleteKey("CustomAnalyticsAutoSave");
+                        EditorGUILayout.EndHorizontal();
+                        EditorGUILayout.BeginHorizontal();
+                        EditorGUILayout.BeginVertical();
+                        EditorGUILayout.BeginHorizontal();
+                        EditorGUILayout.LabelField("SQL Host:", GUILayout.MaxWidth(100f));
+                        string _cachedHost = profile.exportProfile.sql_url;
+                        profile.exportProfile.sql_host = EditorGUILayout.TextField(profile.exportProfile.sql_host);
+                        if (profile.exportProfile.sql_host != _cachedHost) EditorPrefs.DeleteKey("CustomAnalyticsAutoSave");
+                        EditorGUILayout.EndHorizontal();
+                        EditorGUILayout.BeginHorizontal();
+                        EditorGUILayout.LabelField("SQL DB:", GUILayout.MaxWidth(100f));
+                        string _cachedDB = profile.exportProfile.sql_url;
+                        profile.exportProfile.sql_db = EditorGUILayout.TextField(profile.exportProfile.sql_db);
+                        if (profile.exportProfile.sql_db != _cachedDB) EditorPrefs.DeleteKey("CustomAnalyticsAutoSave");
+                        EditorGUILayout.EndHorizontal();
+                        EditorGUILayout.EndVertical();
+                        EditorGUILayout.BeginVertical();
+                        EditorGUILayout.BeginHorizontal();
+                        EditorGUILayout.LabelField("SQL User:", GUILayout.MaxWidth(100f));
+                        string _cachedUser = profile.exportProfile.sql_url;
+                        profile.exportProfile.sql_user = EditorGUILayout.TextField(profile.exportProfile.sql_user);
+                        if (profile.exportProfile.sql_user != _cachedUser) EditorPrefs.DeleteKey("CustomAnalyticsAutoSave");
+                        EditorGUILayout.EndHorizontal();
+                        EditorGUILayout.BeginHorizontal();
+                        EditorGUILayout.LabelField("SQL Pass:", GUILayout.MaxWidth(100f));
+                        string _cachedPass = profile.exportProfile.sql_url;
+                        profile.exportProfile.sql_pass = EditorGUILayout.PasswordField(profile.exportProfile.sql_pass);
+                        if (profile.exportProfile.sql_pass != _cachedPass) EditorPrefs.DeleteKey("CustomAnalyticsAutoSave");
+                        EditorGUILayout.EndHorizontal();
+                        EditorGUILayout.EndVertical();
+                        EditorGUILayout.EndHorizontal();
+                        break;
+                    case Exporter.StorageType.XAPI:
+                        GUI.backgroundColor = Color.red;
+                        EditorGUILayout.BeginHorizontal(EditorStyles.helpBox);
+                        GUILayout.FlexibleSpace();
+                        EditorGUILayout.LabelField("This export type is not yet supported.");
+                        GUILayout.FlexibleSpace();
+                        EditorGUILayout.EndHorizontal();
+                        GUI.backgroundColor = Color.white;
+                        break;
+                }
 
                 string _cachedDescription = profile.description;
                 EditorGUILayout.LabelField("Profile Description:");

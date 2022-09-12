@@ -61,6 +61,11 @@ namespace CodySource
             /// </summary>
             public HashSet<int> recalculatedPreviews = new HashSet<int>();
 
+            /// <summary>
+            /// The profile to use when exporting
+            /// </summary>
+            public Exporter.ExportProfile exportProfile = new Exporter.ExportProfile();
+
             #endregion
 
             #region PUBLIC METHODS
@@ -216,6 +221,7 @@ namespace CodySource
             {
                 //  Set the state
                 state = PROFILE_STATE.COMPILING;
+                _WriteExportScript();
                 _WriteProfileScript();
             }
 
@@ -298,7 +304,11 @@ namespace CodySource
                     "\t\t\t\t{\n" +
                     "{RuntimeExports}" +
                     "\t\t\t\t};\n" +
-                    "\t\t\t\tExporter.Export(JsonUtility.ToJson(_export));\n" +
+                    "\t\t\t\tExporter.ExportProfile _profile = new Exporter.ExportProfile()\n" +
+                    "\t\t\t\t{\n" +
+                    "{ExportProfile}"+
+                    "\t\t\t\t};\n" +
+                    "\t\t\t\tExporter.instance.Export(_profile, _export);\n" +
                     "\t\t\t}\n" +
                     "\n" +
                     "\t\t\t/// Runtime Accessors / Mutators\n" +
@@ -328,6 +338,7 @@ namespace CodySource
                 //  Build output
                 string _output = _template
                     .Replace("{RuntimeExports}", _GenerateRuntimeExports())
+                    .Replace("{ExportProfile}", _GenerateExportProfile())
                     .Replace("{RuntimeAccessorsMutators}", _GenerateRuntimeAccessorsMutators())
                     .Replace("{RuntimeDataPointRefs}", _GenerateRuntimeDataPointRefs())
                     .Replace("{RuntimeDefinition}", _GenerateRuntimeDefinition())
@@ -350,6 +361,23 @@ namespace CodySource
                         {
                             _out += $"\t\t\t\t\t{dataPoints[i].id} = {dataPoints[i].id}_Get(),\n";
                         }
+                    }
+                    return _out;
+                }
+
+                //  Generate the export profile contents
+                string _GenerateExportProfile()
+                {
+                    string _out = "";
+                    switch (exportProfile.storageType)
+                    {
+                        case Exporter.StorageType.PHP_SQL:
+                            _out += "\t\t\t\t\tstorageType = Exporter.StorageType.PHP_SQL,\n" +
+                                $"\t\t\t\t\tsql_url = \"{exportProfile.sql_url}\",\n" +
+                                $"\t\t\t\t\tsql_key = \"{exportProfile.sql_key}\"\n";
+                            break;
+                        case Exporter.StorageType.XAPI:
+                            break;
                     }
                     return _out;
                 }
@@ -416,6 +444,82 @@ namespace CodySource
                     }
                     return _out;
                 }
+            }
+
+            /// <summary>
+            /// Used to write the necessary php file for the php_sql upload method
+            /// </summary>
+            private void _WriteExportScript()
+            {
+                string _output = "<?php\n" +
+                    $"const projectKey = '{exportProfile.sql_key}';\n" +
+                    $"const tableName = '{Application.productName} {Application.version}';\n" +
+                    $"const db_HOST = '{exportProfile.sql_host}';\n" +
+                    $"const db_NAME = '{exportProfile.sql_db}';\n" +
+                    $"const db_USER = '{exportProfile.sql_user}';\n" +
+                    $"const db_PASS = '{exportProfile.sql_pass}';\n" +
+                    "if (!isset($_POST['key'])) Error('Missing or invalid project key!');\n"+
+                    "if (!isset($_POST['payload'])) Error('Missing data!');\n" +
+                    "try { $obj = json_decode($_POST['payload']); $submission = json_encode($obj); }\n" +
+                    "catch (Exception $e) Error('Invalid json payload!');\n" +
+                    "if (ConnectToDB()) {\n" +
+                    "\tif (VerifyTables()) {\n" +
+                    "\t\tif (StoreSubmission($submission)) {\n" +
+                    "\t\t\t$mysqli->close();\n" +
+                    "\t\t\tSuccess('submission_success', gmdate('Y-m-d H:i:s'));}\n" +
+                    "\t\telse Error('An unkown error occured while storing submission.  Check your database permissions.');}\n" +
+                    "\telse Error('An unkown error occured while creating/verifying tables.  Check your database permissions.');}\n" +
+                    "else Error('Unable to connect to database.');\n" +
+                    "function Error($text)\n" +
+                    "{\n" +
+                    "\t$output = new stdClass;\n" +
+                    "\t$output->success = false;\n" +
+                    "\t$output->error = $text;\n" +
+                    "\tdie(json_encode($output));\n" +
+                    "}\n" +
+                    "function Success()\n" +
+                    "{\n" +
+                    "\t$output = new stdClass;\n" +
+                    "\t$output->success = true;\n" +
+                    "\t$argCount = func_num_args();\n" +
+                    "\tif ($argCount % 2 != 0) return;\n" +
+                    "\t$args = func_get_args();\n" +
+                    "\tfor ($i = 0; $i < $argCount; $i += 2)\n" +
+                    "\t{\n" +
+                    "\t\t$arg = func_get_arg($i);\n" +
+                    "\t\t$val = func_get_arg($i + 1);\n" +
+                    "\t\t$output->$arg = $val;\n" +
+                    "\t}\n" +
+                    "\tdie(json_encode($output));\n" +
+                    "}\n" +
+                    "$mysqli; $timestamp;\n" +
+                    "function ConnectToDB()\n" +
+                    "{\n" +
+                    "\tglobal $mysqli, $timestamp;\n" +
+                    "\t$mysqli = new mysqli(db_HOST, db_USER, db_PASS, db_NAME);\n" +
+                    "\tif ($mysqli->maxdb_connect_errno) return false;\n" +
+                    "\t$timestamp = date(DATE_RFC3339);\n" +
+                    "\treturn true;\n" +
+                    "}\n" +
+                    "function VerifyTables()\n" +
+                    "{\n" +
+                    "\tglobal $mysqli, $timestamp;\n" +
+                    "\tif ($mysqli->query('CREATE TABLE IF NOT EXISTS '.tableName.' (\n" +
+                    "\t\tSubmission varchar(1023)\n" +
+                    "\t); ')) return true;\n" +
+                    "\treturn false;\n" +
+                    "}\n" +
+                    "function StoreSubmission($pText)\n" +
+                    "{\n" +
+                    "\tglobal $mysqli, $timestamp;\n" +
+                    "\tif ($mysqli->query('INSERT INTO '.tableName.' (Submission)\n" +
+                    "\t\tVALUES(\\''.$pText.'\\');')) return true;\n" +
+                    "\treturn false;\n" +
+                    "}\n" +
+                    "?>";
+
+                //  Write file
+                File.WriteAllText($"./Assets/{name}.php", _output);
             }
 
             #endregion
