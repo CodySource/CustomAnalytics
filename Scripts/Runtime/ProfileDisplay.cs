@@ -461,7 +461,7 @@ namespace CodySource
                     "if (!isset($_POST['key'])) Error('Missing or invalid project key!');\n"+
                     "if (!isset($_POST['payload'])) Error('Missing data!');\n" +
                     "try { $obj = json_decode($_POST['payload']); $submission = json_encode($obj); }\n" +
-                    "catch (Exception $e) Error('Invalid json payload!');\n" +
+                    "catch (Exception $e) {Error('Invalid json payload!');}\n" +
                     "if (ConnectToDB()) {\n" +
                     "\tif (VerifyTables()) {\n" +
                     "\t\tif (StoreSubmission($submission)) {\n" +
