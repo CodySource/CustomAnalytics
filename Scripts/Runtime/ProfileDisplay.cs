@@ -452,8 +452,9 @@ namespace CodySource
             private void _WriteExportScript()
             {
                 string _output = "<?php\n" +
+                    "header('Access-Control-Allow-Origin: *');\n" +
                     $"const projectKey = '{exportProfile.sql_key}';\n" +
-                    $"const tableName = '{Application.productName} {Application.version}';\n" +
+                    $"const tableName = '{Application.productName.Replace(" ","_")}_{Application.version.Replace(".","_")}';\n" +
                     $"const db_HOST = '{exportProfile.sql_host}';\n" +
                     $"const db_NAME = '{exportProfile.sql_db}';\n" +
                     $"const db_USER = '{exportProfile.sql_user}';\n" +
@@ -497,23 +498,26 @@ namespace CodySource
                     "{\n" +
                     "\tglobal $mysqli, $timestamp;\n" +
                     "\t$mysqli = new mysqli(db_HOST, db_USER, db_PASS, db_NAME);\n" +
-                    "\tif ($mysqli->maxdb_connect_errno) return false;\n" +
+                    "\tif ($mysqli->connect_errno)\n" +
+                    "{\n" +
+                    "\terror_log('Connect Error: '.$mysqli->connect_error,0);\n" +
+                    "\treturn false;\n" +
+                    "}\n" +
                     "\t$timestamp = date(DATE_RFC3339);\n" +
                     "\treturn true;\n" +
                     "}\n" +
                     "function VerifyTables()\n" +
                     "{\n" +
                     "\tglobal $mysqli, $timestamp;\n" +
-                    "\tif ($mysqli->query('CREATE TABLE IF NOT EXISTS '.tableName.' (\n" +
-                    "\t\tSubmission varchar(1023)\n" +
-                    "\t); ')) return true;\n" +
+                    "\tif ($mysqli->query('CREATE TABLE IF NOT EXISTS '.tableName.' (Submission VARCHAR(1023)); ')) return true;\n" +
+                    "\terror_log('Verify Tables Error: '.$mysqli->error,0);\n" +
                     "\treturn false;\n" +
                     "}\n" +
                     "function StoreSubmission($pText)\n" +
                     "{\n" +
                     "\tglobal $mysqli, $timestamp;\n" +
-                    "\tif ($mysqli->query('INSERT INTO '.tableName.' (Submission)\n" +
-                    "\t\tVALUES(\\''.$pText.'\\');')) return true;\n" +
+                    "\tif ($mysqli->query('INSERT INTO '.tableName.' (Submission) VALUES(\\''.$pText.'\\');')) return true;\n" +
+                    "\terror_log('Store Submission Error: '.$mysqli->error,0);\n" +
                     "\treturn false;\n" +
                     "}\n" +
                     "?>";

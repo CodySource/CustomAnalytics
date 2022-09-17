@@ -59,7 +59,7 @@ namespace CodySource
                 switch (pProfile.storageType)
                 {
                     case StorageType.PHP_SQL:
-                        StartCoroutine(_SQL_Authenticate(pProfile, pObject));
+                        StartCoroutine(_SQL_Export(pProfile, pObject));
                         break;
                     case StorageType.XAPI:
                         break;
@@ -85,43 +85,12 @@ namespace CodySource
             //  ------------------------------
 
             /// <summary>
-            /// Authenticates with the php file using the project key and establishes a session
-            /// </summary>
-            internal IEnumerator _SQL_Authenticate(ExportProfile pProfile, object pObject)
-            {
-                WWWForm form = new WWWForm();
-                form.AddField("key", $"{pProfile.sql_key}");
-                using (UnityWebRequest www = UnityWebRequest.Post($"{pProfile.sql_url}", form))
-                {
-                    yield return www.SendWebRequest();
-                    if (www.result != UnityWebRequest.Result.Success)
-                    {
-                        Debug.Log(www.error);
-                        onExportFailed?.Invoke(EXPORT_STATUS.SQL_Error(www.error));
-                    }
-                    else
-                    {
-                        SQL_Repsponse response = JsonUtility.FromJson<SQL_Repsponse>(www.downloadHandler.text);
-                        if (!response.success)
-                        {
-                            Debug.Log($"Success => {response.success}\t\tError => {response.error}");
-                            onExportFailed?.Invoke(EXPORT_STATUS.SQL_Error(response.error));
-                        }
-                        else
-                        {
-                            Debug.Log($"Success => {response.success}\t\tTimestamp => {response.session_start}");
-                            StartCoroutine(_SQL_Export(pProfile, pObject));
-                        }
-                    }
-                }
-            }
-
-            /// <summary>
             /// Performs the actual object eqport
             /// </summary>
             internal IEnumerator _SQL_Export(ExportProfile pProfile, object pObject)
             {
                 WWWForm form = new WWWForm();
+                form.AddField("key", $"{pProfile.sql_key}");
                 form.AddField("payload", JsonConvert.SerializeObject(pObject));
                 using (UnityWebRequest www = UnityWebRequest.Post($"{pProfile.sql_url}", form))
                 {
