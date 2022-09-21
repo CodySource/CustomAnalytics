@@ -298,22 +298,12 @@ namespace CodySource
                     "\t\t\t#region GENERATED\n" +
                     "\n" +
                     "\t\t\t/// Export runtime data\n" +
-                    "\t\t\tpublic void Export()\n" +
-                    "\t\t\t{\n" +
-                    "\t\t\t\tAnalyticsRuntime.Export _export = new AnalyticsRuntime.Export()\n" +
-                    "\t\t\t\t{\n" +
-                    "{RuntimeExports}" +
-                    "\t\t\t\t};\n" +
-                    "\t\t\t\tExporter.ExportProfile _profile = new Exporter.ExportProfile()\n" +
-                    "\t\t\t\t{\n" +
-                    "{ExportProfile}"+
-                    "\t\t\t\t};\n" +
-                    "\t\t\t\tExporter.instance.Export(_profile, _export);\n" +
-                    "\t\t\t}\n" +
+                    "\t\t\tpublic void Export() => runtime.Export();\n" +
                     "\n" +
                     "\t\t\t/// Runtime Accessors / Mutators\n" +
                     "\n" +
                     "{RuntimeAccessorsMutators}" +
+                    "\n" +
                     "\t\t\t/// Runtime Definition\n" +
                     "\t\t\tpublic class AnalyticsRuntime\n" +
                     "\t\t\t{\n" +
@@ -321,10 +311,20 @@ namespace CodySource
                     "{RuntimeDefinition}" +
                     "\t\t\t\t};\n" +
                     "\n" +
+                    "\t\t\t\tpublic Exporter.ExportProfile exportProfile = new Exporter.ExportProfile()\n" +
+                    "\t\t\t\t{\n" +
+                    "{ExportProfile}" +
+                    "\t\t\t\t};\n" +
+                    "\t\t\t\tpublic ExportObject exportObject => new ExportObject()\n" +
+                    "\t\t\t\t{\n" +
+                    "{RuntimeExports}" +
+                    "\t\t\t\t};\n" +
+                    "\t\t\t\tpublic void Export() => Exporter.instance.Export(exportProfile, exportObject);\n" +
+                    "\n" +
                     "{RuntimeDataPointRefs}" +
                     "\n" +
                     "\t\t\t\t[System.Serializable]\n" +
-                    "\t\t\t\tpublic struct Export\n" +
+                    "\t\t\t\tpublic struct ExportObject\n" +
                     "\t\t\t\t{\n" +
                     "{RuntimeExportDefinition}" +
                     "\t\t\t\t}\n" +
@@ -337,11 +337,11 @@ namespace CodySource
 
                 //  Build output
                 string _output = _template
-                    .Replace("{RuntimeExports}", _GenerateRuntimeExports())
-                    .Replace("{ExportProfile}", _GenerateExportProfile())
                     .Replace("{RuntimeAccessorsMutators}", _GenerateRuntimeAccessorsMutators())
-                    .Replace("{RuntimeDataPointRefs}", _GenerateRuntimeDataPointRefs())
                     .Replace("{RuntimeDefinition}", _GenerateRuntimeDefinition())
+                    .Replace("{ExportProfile}", _GenerateExportProfile())
+                    .Replace("{RuntimeExports}", _GenerateRuntimeExports())
+                    .Replace("{RuntimeDataPointRefs}", _GenerateRuntimeDataPointRefs())
                     .Replace("{RuntimeExportDefinition}", _GenerateRuntimeExportDefinition());
 
                 //  Write file
@@ -351,37 +351,6 @@ namespace CodySource
                 //  Refresh the asset database
                 UnityEditor.AssetDatabase.ImportAsset($"Assets/CustomAnalytics/{name}.cs");
                 UnityEditor.AssetDatabase.Refresh();
-
-                //  Generate the exported datapoint callbacks
-                string _GenerateRuntimeExports()
-                {
-                    string _out = "";
-                    for (int i = 0; i < dataPoints.Count; i++)
-                    {
-                        if (dataPoints[i].export)
-                        {
-                            _out += $"\t\t\t\t\t{dataPoints[i].id} = {dataPoints[i].id}_Get(),\n";
-                        }
-                    }
-                    return _out;
-                }
-
-                //  Generate the export profile contents
-                string _GenerateExportProfile()
-                {
-                    string _out = "";
-                    switch (exportProfile.storageType)
-                    {
-                        case Exporter.StorageType.PHP_SQL:
-                            _out += "\t\t\t\t\tstorageType = Exporter.StorageType.PHP_SQL,\n" +
-                                $"\t\t\t\t\tsql_url = \"{exportProfile.sql_url}\",\n" +
-                                $"\t\t\t\t\tsql_key = \"{exportProfile.sql_key}\"\n";
-                            break;
-                        case Exporter.StorageType.XAPI:
-                            break;
-                    }
-                    return _out;
-                }
 
                 //  Generate the accessors and mutators for the datapoints
                 string _GenerateRuntimeAccessorsMutators()
@@ -406,7 +375,7 @@ namespace CodySource
                         $"\t\t\t\t\t\texport = {dataPoints[i].export.ToString().ToLower()},\n" +
                         $"\t\t\t\t\t\tnumber = {dataPoints[i].Number(ref dataPoints)}f,\n" +
                         $"\t\t\t\t\t\tflag = {dataPoints[i].Flag(ref dataPoints).ToString().ToLower()},\n" +
-                        $"\t\t\t\t\t\ttext = \"{dataPoints[i].Text(ref dataPoints).Replace("\"","\\\"")}\",\n" +
+                        $"\t\t\t\t\t\ttext = \"{dataPoints[i].Text(ref dataPoints).Replace("\"", "\\\"")}\",\n" +
 #if UNITY_2021_OR_NEWER
                         $"\t\t\t\t\t\tsources = new List<int>(new int[] {{{((_sources == "")? ", " : _sources)[..^2]}}}),\n" +
 #else
@@ -417,6 +386,44 @@ namespace CodySource
                         $"\t\t\t\t\t\tcalculationString = \"{dataPoints[i].calculationString}\",\n" +
                         ((dataPoints[i].calculationString != "<None>") ? $"\t\t\t\t\t\tcalculation = new Calculations.{dataPoints[i].calculationString}(),\n" : "") +
                         "\t\t\t\t\t},\n";
+                    }
+                    return _out;
+                }
+
+                //  Generate the export profile contents
+                string _GenerateExportProfile()
+                {
+                    string _out = "";
+                    switch (exportProfile.storageType)
+                    {
+                        case Exporter.StorageType.PHP_SQL:
+                            _out += "\t\t\t\t\tstorageType = Exporter.StorageType.PHP_SQL,\n" +
+                                $"\t\t\t\t\tsql_url = \"{exportProfile.sql_url}\",\n" +
+                                $"\t\t\t\t\tsql_key = \"{exportProfile.sql_key}\"\n";
+                            break;
+                        case Exporter.StorageType.XAPI:
+                            break;
+                    }
+                    return _out;
+                }
+
+                //  Generate the exported datapoint callbacks
+                string _GenerateRuntimeExports()
+                {
+                    string _out = "";
+                    for (int i = 0; i < dataPoints.Count; i++)
+                    {
+                        if (dataPoints[i].export)
+                        {
+                            string _defaultGetter = dataPoints[i].type.GetTypeString() switch
+                            {
+                                "float" => "Number",
+                                "bool" => "Flag",
+                                "string" => "Text",
+                                _ => ""
+                            };
+                            _out += $"\t\t\t\t\t{dataPoints[i].id} = {dataPoints[i].id}.{_defaultGetter}(ref dataPoints),\n";
+                        }
                     }
                     return _out;
                 }
