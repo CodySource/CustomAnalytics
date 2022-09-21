@@ -94,6 +94,14 @@ namespace CodySource
                 return $"{r}\n";
             }
 
+            public Data ToData() => new Data() { id = id, flag = flag, number = number, text = text };
+            public void FromData(Data pData)
+            {
+                flag = pData.flag;
+                number = pData.number;
+                text = pData.text;
+            }
+
             public float Number(ref List<DataPoint> pProfile) => type.GetNumber(this, ref pProfile);
             public bool Flag(ref List<DataPoint> pProfile) => type.GetFlag(this, ref pProfile);
             public string Text(ref List<DataPoint> pProfile) => type.GetText(this, ref pProfile);
@@ -102,7 +110,20 @@ namespace CodySource
             public void Set(bool pBool) => flag = pBool;
             public void Set(string pString) => text = pString;
 
-#endregion
+            #endregion
+
+            #region PUBLIC STRUCT
+
+            [System.Serializable]
+            public struct Data
+            {
+                public string id;
+                public bool flag;
+                public float number;
+                public string text;
+            }
+
+            #endregion
         }
     }
 }

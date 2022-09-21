@@ -311,6 +311,21 @@ namespace CodySource
                     "{RuntimeDefinition}" +
                     "\t\t\t\t};\n" +
                     "\n" +
+                    "\t\t\t\tpublic List<DataPoint.Data> ToData()\n" +
+                    "\t\t\t\t{\n" +
+                    "\t\t\t\t\tList <DataPoint.Data> _data = new List<DataPoint.Data>();\n" +
+                    "\t\t\t\t\tdataPoints.ForEach(p => _data.Add(p.ToData()));\n" +
+                    "\t\t\t\t\treturn _data;\n" +
+                    "\t\t\t\t}\n" +
+                    "\n" +
+                    "\t\t\t\tpublic void FromData(List<DataPoint.Data> pData)\n" +
+                    "\t\t\t\t{\n" +
+                    "\t\t\t\t\tpData.ForEach(d => {\n" +
+                    "\t\t\t\t\t\tDataPoint _target = dataPoints.Find(p => p.id == d.id);\n" +
+                    "\t\t\t\t\t\tif (_target != null) _target.FromData(d);\n" +
+                    "\t\t\t\t\t});\n" +
+                    "\t\t\t\t}\n" +
+                    "\n" +
                     "\t\t\t\tpublic Exporter.ExportProfile exportProfile = new Exporter.ExportProfile()\n" +
                     "\t\t\t\t{\n" +
                     "{ExportProfile}" +
