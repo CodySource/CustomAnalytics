@@ -106,12 +106,12 @@ namespace CodySource
                         if (response.success)
                         {
                             Debug.Log($"Success => {response.success}\t\tTimestamp => {response.submission_success}");
-                            onExportFailed?.Invoke(EXPORT_STATUS.SQL_Error(response.error));
+                            onExportComplete?.Invoke(EXPORT_STATUS.SQL_Succss(response.submission_success));
                         }
                         else
                         {
                             Debug.Log($"Success => {response.success}\t\tError => {response.error}");
-                            onExportComplete?.Invoke(EXPORT_STATUS.SQL_Succss(response.submission_success));
+                            onExportFailed?.Invoke(EXPORT_STATUS.SQL_Error(response.error));
                         }
                     }
                 }
