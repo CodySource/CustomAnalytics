@@ -240,7 +240,7 @@ namespace CodySource
 #if UNITY_2021_OR_NEWER
                     UnityEditor.EditorGUIUtility.SetIconForObject(_o, texture);
 #endif
-                    UnityEditor.AssetDatabase.CreateAsset(_o, $"Assets/{name}.asset");
+                    UnityEditor.AssetDatabase.CreateAsset(_o, $"Assets/CustomAnalytics/{name}.asset");
                     UnityEditor.AssetDatabase.SaveAssets();
                     UnityEditor.AssetDatabase.Refresh();
                     UnityEditor.EditorGUIUtility.PingObject(_o);
@@ -349,7 +349,7 @@ namespace CodySource
                 File.WriteAllText($"./Assets/CustomAnalytics/{name}.cs", _output);
 
                 //  Refresh the asset database
-                UnityEditor.AssetDatabase.ImportAsset($"Assets/{name}.cs");
+                UnityEditor.AssetDatabase.ImportAsset($"Assets/CustomAnalytics/{name}.cs");
                 UnityEditor.AssetDatabase.Refresh();
 
                 //  Generate the exported datapoint callbacks
