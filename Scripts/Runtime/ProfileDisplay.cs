@@ -484,7 +484,10 @@ namespace CodySource
                     $"const db_PASS = '{exportProfile.sql_pass}';\n" +
                     "if (!isset($_POST['key'])) Error('Missing or invalid project key!');\n"+
                     "if (!isset($_POST['payload'])) Error('Missing data!');\n" +
-                    "try { $obj = json_decode($_POST['payload']); $submission = json_encode($obj); }\n" +
+                    "try { \n" +
+                    "\t$obj = json_decode(preg_replace('/[^\\w.! {}:,\\[\\]\"]/ ','',$_POST['payload']));\n" +
+                    "\tif ($obj == null) throw new Exception('Invalid json payload!);\n" +
+                    "\t$submission = json_encode($obj); }\n" +
                     "catch (Exception $e) {Error('Invalid json payload!');}\n" +
                     "if (ConnectToDB()) {\n" +
                     "\tif (VerifyTables()) {\n" +
@@ -532,7 +535,7 @@ namespace CodySource
                     "function VerifyTables()\n" +
                     "{\n" +
                     "\tglobal $mysqli, $timestamp;\n" +
-                    "\tif ($mysqli->query('CREATE TABLE IF NOT EXISTS '.tableName.' (Submission VARCHAR(1023)); ')) return true;\n" +
+                    "\tif ($mysqli->query('CREATE TABLE IF NOT EXISTS '.tableName.' (Submission TEXT); ')) return true;\n" +
                     "\terror_log('Verify Tables Error: '.$mysqli->error,0);\n" +
                     "\treturn false;\n" +
                     "}\n" +

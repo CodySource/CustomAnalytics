@@ -505,7 +505,7 @@ namespace CodySource
                     isClosingProfile = true;
                 }
                 GUI.backgroundColor = (exportSave == autoSave) ? Color.grey : Color.green;
-                if (GUILayout.Button($"Export Profile", GUILayout.Height(EditorGUIUtility.singleLineHeight * 2f)) && (exportSave != autoSave))
+                if (GUILayout.Button($"Export Profile", GUILayout.Height(EditorGUIUtility.singleLineHeight * 2f)))
                 {
                     profile.state = ProfileDisplay.PROFILE_STATE.EXPORTING;
                     autoSave = "";
