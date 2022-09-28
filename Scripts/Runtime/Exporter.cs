@@ -102,16 +102,23 @@ namespace CodySource
                     }
                     else
                     {
-                        SQL_Repsponse response = JsonUtility.FromJson<SQL_Repsponse>(www.downloadHandler.text);
-                        if (response.success)
+                        try
                         {
-                            Debug.Log($"Success => {response.success}\t\tTimestamp => {response.submission_success}");
-                            onExportComplete?.Invoke(EXPORT_STATUS.SQL_Succss(response.submission_success));
+                            SQL_Repsponse response = JsonUtility.FromJson<SQL_Repsponse>(www.downloadHandler.text);
+                            if (response.success)
+                            {
+                                Debug.Log($"Success => {response.success}\t\tTimestamp => {response.submission_success}");
+                                onExportComplete?.Invoke(EXPORT_STATUS.SQL_Succss(response.submission_success));
+                            }
+                            else
+                            {
+                                Debug.Log($"Success => {response.success}\t\tError => {response.error}");
+                                onExportFailed?.Invoke(EXPORT_STATUS.SQL_Error(response.error));
+                            }
                         }
-                        else
+                        catch (System.Exception e)
                         {
-                            Debug.Log($"Success => {response.success}\t\tError => {response.error}");
-                            onExportFailed?.Invoke(EXPORT_STATUS.SQL_Error(response.error));
+                            Debug.Log(e.Message + "\n\n" + www.downloadHandler.text);
                         }
                     }
                 }
