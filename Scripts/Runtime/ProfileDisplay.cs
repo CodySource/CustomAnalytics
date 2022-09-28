@@ -486,7 +486,7 @@ namespace CodySource
                     "if (!isset($_POST['payload'])) Error('Missing data!');\n" +
                     "try { \n" +
                     "\t$obj = json_decode(preg_replace('/[^\\w.! {}:,\\[\\]\"]/ ','',$_POST['payload']));\n" +
-                    "\tif ($obj == null) throw new Exception('Invalid json payload!);\n" +
+                    "\tif ($obj == null) throw new Exception('Invalid json payload!');\n" +
                     "\t$submission = json_encode($obj); }\n" +
                     "catch (Exception $e) {Error('Invalid json payload!');}\n" +
                     "if (ConnectToDB()) {\n" +
