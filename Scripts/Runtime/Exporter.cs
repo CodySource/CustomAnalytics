@@ -54,7 +54,7 @@ namespace CodySource
             /// <summary>
             /// Perform export operations
             /// </summary>
-            public void Export(ExportProfile pProfile, object pObject)
+            public void Export(SQL_ExportProfile pProfile, object pObject)
             {
                 switch (pProfile.storageType)
                 {
@@ -87,7 +87,7 @@ namespace CodySource
             /// <summary>
             /// Performs the actual object eqport
             /// </summary>
-            internal IEnumerator _SQL_Export(ExportProfile pProfile, object pObject)
+            internal IEnumerator _SQL_Export(SQL_ExportProfile pProfile, object pObject)
             {
                 WWWForm form = new WWWForm();
                 form.AddField("key", $"{pProfile.sql_key}");
@@ -108,7 +108,7 @@ namespace CodySource
                             if (response.success)
                             {
                                 Debug.Log($"Success => {response.success}\t\tTimestamp => {response.submission_success}");
-                                onExportComplete?.Invoke(EXPORT_STATUS.SQL_Succss(response.submission_success));
+                                onExportComplete?.Invoke(EXPORT_STATUS.SQL_Success(response.submission_success));
                             }
                             else
                             {
@@ -124,6 +124,19 @@ namespace CodySource
                 }
             }
 
+
+            //  ------------------------------
+            //  xAPI
+            //  ------------------------------
+
+            /// <summary>
+            /// Performs the actual object eqport
+            /// </summary>
+            internal void GBL_xAPIExport(SQL_ExportProfile pProfile, object pObject)
+            {
+
+            }
+
             #endregion
 
             #region STRUCTS
@@ -136,7 +149,7 @@ namespace CodySource
                 public string message;
                 public static EXPORT_STATUS SQL_Error(string pMessage) => 
                     new EXPORT_STATUS() { success = false, storageType = StorageType.PHP_SQL, message = pMessage };
-                public static EXPORT_STATUS SQL_Succss(string pMessage) => 
+                public static EXPORT_STATUS SQL_Success(string pMessage) => 
                     new EXPORT_STATUS() { success = true, storageType = StorageType.PHP_SQL, message = pMessage };
             }
 
@@ -150,7 +163,7 @@ namespace CodySource
             }
 
             [System.Serializable]
-            public struct ExportProfile
+            public struct SQL_ExportProfile
             {
                 public StorageType storageType;
                 public string sql_url;

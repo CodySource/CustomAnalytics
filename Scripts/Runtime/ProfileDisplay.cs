@@ -64,7 +64,7 @@ namespace CodySource
             /// <summary>
             /// The profile to use when exporting
             /// </summary>
-            public Exporter.ExportProfile exportProfile = new Exporter.ExportProfile();
+            public Exporter.SQL_ExportProfile exportProfile = new Exporter.SQL_ExportProfile();
 
             #endregion
 
