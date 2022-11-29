@@ -264,7 +264,7 @@ namespace CodySource
                 state = PROFILE_STATE.IDLE;
             }
 
-#endregion
+            #endregion
 
             #region PRIVATE METHODS
 
@@ -477,7 +477,7 @@ namespace CodySource
                 string _output = "<?php\n" +
                     "header('Access-Control-Allow-Origin: *');\n" +
                     $"const projectKey = '{exportProfile.sql_key}';\n" +
-                    $"const tableName = '{Application.productName.Replace(" ","_")}_{Application.version.Replace(".","_")}_Analytics';\n" +
+                    $"const tableName = '{Application.productName.Replace(" ","_")}_{Application.version.Replace(".","_").Replace("[","").Replace("]","").Split('-')[0]}_Analytics';\n" +
                     $"const db_HOST = '{exportProfile.sql_host}';\n" +
                     $"const db_NAME = '{exportProfile.sql_db}';\n" +
                     $"const db_USER = '{exportProfile.sql_user}';\n" +
