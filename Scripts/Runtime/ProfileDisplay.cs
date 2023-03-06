@@ -326,7 +326,7 @@ namespace CodySource
                     "\t\t\t\t\t});\n" +
                     "\t\t\t\t}\n" +
                     "\n" +
-                    "\t\t\t\tpublic Exporter.ExportProfile exportProfile = new Exporter.ExportProfile()\n" +
+                    "\t\t\t\tpublic Exporter.SQL_ExportProfile exportProfile = new Exporter.SQL_ExportProfile()\n" +
                     "\t\t\t\t{\n" +
                     "{ExportProfile}" +
                     "\t\t\t\t};\n" +
